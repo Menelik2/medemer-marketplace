@@ -46,6 +46,14 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
+  --color-heritage-gold: var(--heritage-gold);
+  --color-heritage-red: var(--heritage-red);
+  --color-heritage-green: var(--heritage-green);
+  --color-ethio-charcoal: var(--ethio-charcoal);
+  --color-soft-clay: var(--soft-clay);
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+  --font-amharic: var(--font-amharic);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
