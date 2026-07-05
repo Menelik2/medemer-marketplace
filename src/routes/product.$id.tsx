@@ -1,29 +1,21 @@
-import { createFileRoute, Link, notFound, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft, Heart, BadgeCheck, Star, Minus, Plus, ShoppingBag, Tag, Check, X, Store,
+  ArrowLeft, Heart, BadgeCheck, Star, Minus, Plus, ShoppingBag, Tag, Check, X, Store, MessageSquare, Loader2, Camera, ShieldCheck,
 } from "lucide-react";
-import { COUPONS, DELIVERY_FEE, ETB, getProduct, getSeller, PRODUCTS } from "@/lib/catalog";
+import { COUPONS, DELIVERY_FEE, ETB, resolveImg } from "@/lib/catalog";
+import { getProductBySlug, listReviews, submitReview } from "@/lib/marketplace.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/product/$id")({
-  loader: ({ params }) => {
-    const product = getProduct(params.id);
-    if (!product) throw notFound();
-    const seller = getSeller(product.sellerId)!;
-    return { product, seller };
-  },
-  head: ({ loaderData }) => {
-    if (!loaderData) return { meta: [{ title: "Product not found" }, { name: "robots", content: "noindex" }] };
-    const { product } = loaderData;
-    return {
-      meta: [
-        { title: `${product.name} — ADDIX` },
-        { name: "description", content: product.description },
-        { property: "og:title", content: product.name },
-        { property: "og:description", content: product.description },
-      ],
-    };
-  },
+  head: () => ({
+    meta: [
+      { title: "Product — ADDIX" },
+      { name: "description", content: "ADDIX product details." },
+    ],
+  }),
   component: ProductPage,
   notFoundComponent: () => (
     <div className="min-h-screen grid place-items-center text-center p-6">
@@ -39,7 +31,13 @@ export const Route = createFileRoute("/product/$id")({
 });
 
 function ProductPage() {
-  const { product, seller } = Route.useLoaderData();
+  const { id } = Route.useParams();
+  const fetchProduct = useServerFn(getProductBySlug);
+  const { data: p, isLoading } = useQuery({
+    queryKey: ["product", id],
+    queryFn: () => fetchProduct({ data: { slug: id } }),
+  });
+
   const [qty, setQty] = useState(1);
   const [liked, setLiked] = useState(false);
   const [coupon, setCoupon] = useState("");
@@ -47,7 +45,8 @@ function ProductPage() {
   const [couponError, setCouponError] = useState<string | null>(null);
   const [added, setAdded] = useState(false);
 
-  const subtotal = product.price * qty;
+  const price = Number(p?.price ?? 0);
+  const subtotal = price * qty;
   const discount = useMemo(() => {
     if (!applied) return 0;
     const c = COUPONS[applied];
@@ -68,7 +67,18 @@ function ProductPage() {
     }
   };
 
-  const related = PRODUCTS.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+  if (isLoading || !p) {
+    return <div className="min-h-screen grid place-items-center"><Loader2 className="size-6 animate-spin text-heritage-gold" /></div>;
+  }
+  const seller = (p as any).sellers;
+  const product = {
+    ...p,
+    img: resolveImg(p.img, p.category),
+    nameAm: p.name_am ?? "",
+    reviewCount: p.review_count,
+    price,
+    stock: p.stock ?? 0,
+  };
 
   return (
     <div className="min-h-screen bg-soft-clay pb-40">
@@ -108,7 +118,7 @@ function ProductPage() {
               </p>
             </div>
             <div className="text-right shrink-0">
-              <p className="font-display text-2xl font-bold text-heritage-gold">{product.price.toLocaleString()}</p>
+              <p className="font-display text-2xl font-bold text-heritage-gold">{Number(product.price).toLocaleString()}</p>
               <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">ETB</p>
             </div>
           </div>
@@ -131,7 +141,7 @@ function ProductPage() {
           params={{ slug: seller.slug }}
           className="mt-4 flex items-center gap-3 bg-card border border-border rounded-2xl p-3 shadow-sm hover:shadow-md transition"
         >
-          <img src={seller.avatar} alt={seller.name} className="size-12 rounded-xl object-cover" />
+          <img src={resolveImg(seller.avatar, product.category)} alt={seller.name} className="size-12 rounded-xl object-cover" />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               <p className="text-sm font-semibold truncate">{seller.name}</p>
@@ -191,26 +201,8 @@ function ProductPage() {
           </div>
         </div>
 
-        {/* Related */}
-        {related.length > 0 && (
-          <section className="mt-8">
-            <h3 className="font-display text-lg mb-3">More from this category</h3>
-            <div className="grid grid-cols-2 gap-3">
-              {related.map((p) => (
-                <Link
-                  key={p.id}
-                  to="/product/$id"
-                  params={{ id: p.slug }}
-                  className="bg-card border border-border rounded-2xl p-2 shadow-sm"
-                >
-                  <img src={p.img} alt={p.name} className="w-full aspect-square rounded-xl object-cover mb-2" />
-                  <p className="text-xs font-semibold truncate">{p.name}</p>
-                  <p className="text-xs font-bold text-heritage-gold">{ETB(p.price)}</p>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
+        {/* Reviews */}
+        <ReviewsSection productId={product.id} />
       </main>
 
       {/* Sticky bottom bar */}
@@ -250,5 +242,150 @@ function Row({ label, value, accent }: { label: string; value: string; accent?: 
       <span className="text-muted-foreground">{label}</span>
       <span className={accent ? "text-heritage-green font-semibold" : "font-semibold"}>{value}</span>
     </div>
+  );
+}
+
+function ReviewsSection({ productId }: { productId: string }) {
+  const fetchReviews = useServerFn(listReviews);
+  const submit = useServerFn(submitReview);
+  const qc = useQueryClient();
+  const { data: reviews = [] } = useQuery({
+    queryKey: ["reviews", productId],
+    queryFn: () => fetchReviews({ data: { productId } }),
+  });
+  const [open, setOpen] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [bodyAm, setBodyAm] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState(false);
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      setError(null);
+      const { data: sess } = await supabase.auth.getSession();
+      if (!sess.session) throw new Error("Please sign in to review.");
+      const urls: string[] = [];
+      for (const f of files) {
+        const path = `${sess.session.user.id}/${Date.now()}-${f.name.replace(/[^a-z0-9.]/gi, "_")}`;
+        const { error } = await supabase.storage.from("review-photos").upload(path, f, { upsert: false });
+        if (error) throw error;
+        const { data } = supabase.storage.from("review-photos").getPublicUrl(path);
+        urls.push(data.publicUrl);
+      }
+      return submit({ data: { productId, rating, title: title || undefined, body: body || undefined, bodyAm: bodyAm || undefined, photoUrls: urls } });
+    },
+    onSuccess: () => {
+      setOk(true);
+      setOpen(false);
+      setTitle(""); setBody(""); setBodyAm(""); setFiles([]);
+      qc.invalidateQueries({ queryKey: ["reviews", productId] });
+    },
+    onError: (e) => setError((e as Error).message),
+  });
+
+  return (
+    <section className="mt-8">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-display text-lg flex items-center gap-1.5">
+          <MessageSquare className="size-4 text-heritage-red" /> Reviews
+          <span className="text-xs text-muted-foreground font-sans">({reviews.length})</span>
+        </h3>
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="text-xs font-bold px-3 py-1.5 rounded-full bg-heritage-gold text-ethio-charcoal"
+        >
+          {open ? "Cancel" : "Write review"}
+        </button>
+      </div>
+
+      {ok && !open && (
+        <div className="mb-3 bg-heritage-green/10 border border-heritage-green/20 rounded-2xl p-3 text-xs flex items-center gap-2">
+          <Check className="size-4 text-heritage-green" />
+          Thanks — your review is live. · አመሰግናለሁ
+        </div>
+      )}
+
+      {open && (
+        <form
+          onSubmit={(e) => { e.preventDefault(); mut.mutate(); }}
+          className="bg-card border border-border rounded-2xl p-4 shadow-sm mb-4 space-y-3"
+        >
+          <div className="flex items-center gap-1">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n} type="button" onClick={() => setRating(n)}
+                className="p-1"
+                aria-label={`Rate ${n}`}
+              >
+                <Star className={`size-5 ${n <= rating ? "text-heritage-gold fill-current" : "text-muted-foreground"}`} />
+              </button>
+            ))}
+            <span className="text-xs text-muted-foreground ml-2">Verified purchaser only · የተረጋገጠ ገዢ</span>
+          </div>
+          <input
+            value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title (optional)"
+            className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm"
+          />
+          <textarea
+            value={body} onChange={(e) => setBody(e.target.value)} placeholder="Your review in English"
+            rows={3}
+            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm"
+          />
+          <textarea
+            value={bodyAm} onChange={(e) => setBodyAm(e.target.value)}
+            placeholder="ግምገማዎ በአማርኛ (አማራጭ)"
+            rows={2}
+            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm"
+            style={{ fontFamily: "var(--font-amharic)" }}
+          />
+          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+            <Camera className="size-4" />
+            <span>Photos ({files.length}/5)</span>
+            <input
+              type="file" accept="image/*" multiple
+              onChange={(e) => setFiles(Array.from(e.target.files ?? []).slice(0, 5))}
+              className="hidden"
+            />
+          </label>
+          {error && <p className="text-xs text-heritage-red">{error}</p>}
+          <button disabled={mut.isPending} className="w-full h-11 rounded-full bg-heritage-red text-soft-clay font-bold text-sm flex items-center justify-center gap-2">
+            {mut.isPending ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />} Submit review
+          </button>
+        </form>
+      )}
+
+      <div className="space-y-3">
+        {reviews.map((r) => (
+          <div key={r.id} className="bg-card border border-border rounded-2xl p-4">
+            <div className="flex items-center gap-1 mb-1">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <Star key={n} className={`size-3.5 ${n <= r.rating ? "text-heritage-gold fill-current" : "text-muted-foreground/40"}`} />
+              ))}
+              <span className="ml-auto text-[10px] text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</span>
+            </div>
+            {r.title && <p className="text-sm font-semibold">{r.title}</p>}
+            {r.body && <p className="text-xs text-ethio-charcoal/80 mt-1">{r.body}</p>}
+            {r.body_am && (
+              <p className="text-xs text-ethio-charcoal/80 mt-1" style={{ fontFamily: "var(--font-amharic)" }}>{r.body_am}</p>
+            )}
+            {!!r.photo_urls?.length && (
+              <div className="mt-2 flex gap-2 overflow-x-auto">
+                {r.photo_urls.map((u) => (
+                  <img key={u} src={u} alt="" className="size-16 rounded-lg object-cover" />
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+        {!reviews.length && (
+          <p className="text-xs text-muted-foreground text-center py-6">
+            No reviews yet. Be the first verified purchaser to leave one.
+          </p>
+        )}
+      </div>
+    </section>
   );
 }
