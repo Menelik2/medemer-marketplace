@@ -114,6 +114,26 @@ export function searchCatalog(filters: SearchFilters): SearchResult {
 
 export const ETB = (n: number) => `${n.toLocaleString()} ETB`;
 
+// Map DB image paths (or category) to bundled asset URLs
+export function resolveImg(img: string | null | undefined, category?: string | null): string {
+  const map: Record<string, string> = {
+    "/src/assets/coffee.jpg": coffee,
+    "/src/assets/gabi.jpg": gabi,
+    "/src/assets/jewelry.jpg": jewelry,
+    "/src/assets/leather-bag.jpg": leatherBag,
+    "/src/assets/courier.jpg": courier,
+  };
+  if (img && map[img]) return map[img];
+  if (img && (img.startsWith("http") || img.startsWith("data:"))) return img;
+  switch (category) {
+    case "coffee": return coffee;
+    case "textiles": return gabi;
+    case "jewelry": return jewelry;
+    case "leather": return leatherBag;
+    default: return coffee;
+  }
+}
+
 export const COUPONS: Record<string, { type: "percent" | "flat"; value: number; label: string }> = {
   ETHIO20: { type: "percent", value: 20, label: "20% off" },
   ADDIS100: { type: "flat", value: 100, label: "100 ETB off" },
