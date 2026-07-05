@@ -26,9 +26,10 @@ export const searchProducts = createServerFn({ method: "GET" })
   .inputValidator((d: unknown) => searchSchema.parse(d))
   .handler(async ({ data }) => {
     const sb = publicClient();
+    const productCols = "id,slug,seller_id,name,name_am,description,description_am,price,category,rating,review_count,stock,img,tags,commission_pct,created_at";
     const { data: rows } = await sb
       .from("products")
-      .select("*, sellers!inner(id,slug,name,verified,rating,region,commission_pct,dot_class,avatar,tagline,tagline_am)")
+      .select(`${productCols}, sellers!inner(id,slug,name,verified,rating,region,commission_pct,dot_class,avatar,tagline,tagline_am)`) 
       .limit(200);
     const q = data.q.trim().toLowerCase();
     let hits = (rows ?? []).map((r) => ({ ...r, seller: (r as any).sellers }));
@@ -89,9 +90,10 @@ export const getProductBySlug = createServerFn({ method: "GET" })
   .inputValidator((d: unknown) => z.object({ slug: z.string() }).parse(d))
   .handler(async ({ data }) => {
     const sb = publicClient();
+    const productCols = "id,slug,seller_id,name,name_am,description,description_am,price,category,rating,review_count,stock,img,tags,commission_pct,created_at";
     const { data: p } = await sb
       .from("products")
-      .select("*, sellers(*)")
+      .select(`${productCols}, sellers(id,slug,name,tagline,tagline_am,region,verified,rating,since,phone,avatar,commission_pct,dot_class)`) 
       .or(`id.eq.${data.slug},slug.eq.${data.slug}`)
       .maybeSingle();
     return p;
