@@ -252,7 +252,7 @@ function Index() {
                   key={p.id}
                   className="bg-card rounded-2xl p-3 border border-border shadow-sm hover:shadow-md transition-shadow"
                 >
-                  <div className="relative">
+                  <Link to="/product/$id" params={{ id: p.slug }} className="block relative">
                     <div className="w-full aspect-square rounded-xl overflow-hidden bg-soft-clay mb-3">
                       <img
                         src={p.img}
@@ -261,10 +261,19 @@ function Index() {
                         className="w-full h-full object-cover"
                       />
                     </div>
+                    {p.verified && (
+                      <div className="absolute bottom-5 left-2 bg-ethio-charcoal/80 backdrop-blur text-soft-clay text-[8px] font-bold px-2 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                        <BadgeCheck className="size-2.5" />
+                        {t("Verified", "የተረጋገጠ")}
+                      </div>
+                    )}
+                  </Link>
+                  <div className="relative">
                     <button
-                      onClick={() =>
-                        setWishlist((w) => ({ ...w, [p.id]: !w[p.id] }))
-                      }
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setWishlist((w) => ({ ...w, [p.id]: !w[p.id] }));
+                      }}
                       className="absolute top-2 right-2 size-8 bg-background/90 backdrop-blur rounded-full grid place-items-center text-heritage-red shadow-sm hover:scale-110 transition-transform"
                       aria-label="Toggle wishlist"
                     >
@@ -273,14 +282,9 @@ function Index() {
                         fill={liked ? "currentColor" : "none"}
                       />
                     </button>
-                    {p.verified && (
-                      <div className="absolute bottom-2 left-2 bg-ethio-charcoal/80 backdrop-blur text-soft-clay text-[8px] font-bold px-2 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
-                        <BadgeCheck className="size-2.5" />
-                        {t("Verified", "የተረጋገጠ")}
-                      </div>
-                    )}
                   </div>
-                  <div className="flex items-center gap-1.5 mb-1">
+                  <Link to="/product/$id" params={{ id: p.slug }} className="block">
+                  <div className="flex items-center gap-1.5 mb-1 mt-2">
                     <span className={`size-2 rounded-full ${p.dot}`} />
                     <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider truncate">
                       {p.seller}
@@ -301,6 +305,7 @@ function Index() {
                       {p.rating}
                     </span>
                   </div>
+                  </Link>
                 </article>
               );
             })}
