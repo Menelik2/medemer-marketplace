@@ -98,17 +98,16 @@ function Index() {
 
         {/* Search */}
         <section className="px-4 mt-5">
-          <div className="relative">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder={t("Search market…", "ገበያ ውስጥ ፈልግ…")}
-              className="w-full bg-card border border-border rounded-2xl py-4 pl-12 pr-14 text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-all shadow-sm placeholder:text-muted-foreground"
-            />
-            <button className="absolute right-2 top-1/2 -translate-y-1/2 size-10 rounded-xl bg-ethio-charcoal text-soft-clay grid place-items-center">
+          <Link
+            to="/search"
+            className="relative block bg-card border border-border rounded-2xl py-4 pl-12 pr-14 text-sm shadow-sm text-muted-foreground"
+          >
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 size-4" />
+            {t("Search market…", "ገበያ ውስጥ ፈልግ…")}
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 size-10 rounded-xl bg-ethio-charcoal text-soft-clay grid place-items-center">
               <ArrowRight className="size-4" />
-            </button>
-          </div>
+            </span>
+          </Link>
         </section>
 
         {/* Hero Banner */}
