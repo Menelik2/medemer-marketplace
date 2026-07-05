@@ -303,7 +303,7 @@ function Confirmation({
 }: {
   orderId: string; method: Method; total: number;
   address: { name: string; phone: string; area: string };
-  product: ReturnType<typeof getProduct> & object;
+  product: { name: string; img: string };
   sellerName: string;
 }) {
   const stages = [
