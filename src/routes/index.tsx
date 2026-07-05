@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   Search,
@@ -15,75 +15,33 @@ import {
   BadgeCheck,
   Truck,
 } from "lucide-react";
-import leatherBag from "@/assets/leather-bag.jpg";
-import coffee from "@/assets/coffee.jpg";
-import gabi from "@/assets/gabi.jpg";
-import jewelry from "@/assets/jewelry.jpg";
-import courier from "@/assets/courier.jpg";
+import { PRODUCTS, SELLERS, CATEGORIES, leatherBag, courier } from "@/lib/catalog";
 
 export const Route = createFileRoute("/")({
   component: Index,
 });
 
 type Lang = "en" | "am";
-
-const categories = [
-  { en: "Coffee", am: "ቡና", img: coffee },
-  { en: "Textiles", am: "ጨርቅ", img: gabi },
-  { en: "Jewelry", am: "ጌጣጌጥ", img: jewelry },
-  { en: "Leather", am: "ቆዳ", img: leatherBag },
-];
-
-const products = [
-  {
-    id: 1,
-    seller: "Yirgacheffe Farms",
-    name: "Single Origin Roast",
-    nameAm: "የይርጋጨፌ ቡና",
-    price: 850,
-    rating: 4.9,
-    verified: true,
-    img: coffee,
-    dot: "bg-heritage-green",
-  },
-  {
-    id: 2,
-    seller: "Sheba Textiles",
-    name: "Traditional Gabi Scarf",
-    nameAm: "ባህላዊ ጋቢ",
-    price: 2400,
-    rating: 5.0,
-    verified: true,
-    img: gabi,
-    dot: "bg-heritage-gold",
-  },
-  {
-    id: 3,
-    seller: "Aksum Silver",
-    name: "Meskel Cross Pendant",
-    nameAm: "የመስቀል ሐብል",
-    price: 3200,
-    rating: 4.8,
-    verified: true,
-    img: jewelry,
-    dot: "bg-heritage-red",
-  },
-  {
-    id: 4,
-    seller: "Modjo Leather Co.",
-    name: "Handmade Satchel",
-    nameAm: "የቆዳ ሻንጣ",
-    price: 5600,
-    rating: 4.7,
-    verified: false,
-    img: leatherBag,
-    dot: "bg-heritage-gold",
-  },
-];
+const categories = CATEGORIES;
+const products = PRODUCTS.slice(0, 4).map((p) => {
+  const seller = SELLERS.find((s) => s.id === p.sellerId)!;
+  return {
+    id: p.id,
+    slug: p.slug,
+    seller: seller.name,
+    name: p.name,
+    nameAm: p.nameAm,
+    price: p.price,
+    rating: p.rating,
+    verified: seller.verified,
+    img: p.img,
+    dot: seller.dotClass,
+  };
+});
 
 function Index() {
   const [lang, setLang] = useState<Lang>("en");
-  const [wishlist, setWishlist] = useState<Record<number, boolean>>({ 2: true });
+  const [wishlist, setWishlist] = useState<Record<string, boolean>>({ "p-2": true });
   const t = (en: string, am: string) => (lang === "en" ? en : am);
 
   return (
@@ -140,17 +98,16 @@ function Index() {
 
         {/* Search */}
         <section className="px-4 mt-5">
-          <div className="relative">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder={t("Search market…", "ገበያ ውስጥ ፈልግ…")}
-              className="w-full bg-card border border-border rounded-2xl py-4 pl-12 pr-14 text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-all shadow-sm placeholder:text-muted-foreground"
-            />
-            <button className="absolute right-2 top-1/2 -translate-y-1/2 size-10 rounded-xl bg-ethio-charcoal text-soft-clay grid place-items-center">
+          <Link
+            to="/search"
+            className="relative block bg-card border border-border rounded-2xl py-4 pl-12 pr-14 text-sm shadow-sm text-muted-foreground"
+          >
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 size-4" />
+            {t("Search market…", "ገበያ ውስጥ ፈልግ…")}
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 size-10 rounded-xl bg-ethio-charcoal text-soft-clay grid place-items-center">
               <ArrowRight className="size-4" />
-            </button>
-          </div>
+            </span>
+          </Link>
         </section>
 
         {/* Hero Banner */}
@@ -293,9 +250,21 @@ function Index() {
               return (
                 <article
                   key={p.id}
-                  className="bg-card rounded-2xl p-3 border border-border shadow-sm hover:shadow-md transition-shadow"
+                  className="relative bg-card rounded-2xl p-3 border border-border shadow-sm hover:shadow-md transition-shadow"
                 >
-                  <div className="relative">
+                  <button
+                    onClick={() =>
+                      setWishlist((w) => ({ ...w, [p.id]: !w[p.id] }))
+                    }
+                    className="absolute top-5 right-5 z-10 size-8 bg-background/90 backdrop-blur rounded-full grid place-items-center text-heritage-red shadow-sm hover:scale-110 transition-transform"
+                    aria-label="Toggle wishlist"
+                  >
+                    <Heart
+                      className="size-4"
+                      fill={liked ? "currentColor" : "none"}
+                    />
+                  </button>
+                  <Link to="/product/$id" params={{ id: p.slug }} className="block relative">
                     <div className="w-full aspect-square rounded-xl overflow-hidden bg-soft-clay mb-3">
                       <img
                         src={p.img}
@@ -304,25 +273,14 @@ function Index() {
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    <button
-                      onClick={() =>
-                        setWishlist((w) => ({ ...w, [p.id]: !w[p.id] }))
-                      }
-                      className="absolute top-2 right-2 size-8 bg-background/90 backdrop-blur rounded-full grid place-items-center text-heritage-red shadow-sm hover:scale-110 transition-transform"
-                      aria-label="Toggle wishlist"
-                    >
-                      <Heart
-                        className="size-4"
-                        fill={liked ? "currentColor" : "none"}
-                      />
-                    </button>
                     {p.verified && (
-                      <div className="absolute bottom-2 left-2 bg-ethio-charcoal/80 backdrop-blur text-soft-clay text-[8px] font-bold px-2 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                      <div className="absolute bottom-5 left-2 bg-ethio-charcoal/80 backdrop-blur text-soft-clay text-[8px] font-bold px-2 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
                         <BadgeCheck className="size-2.5" />
                         {t("Verified", "የተረጋገጠ")}
                       </div>
                     )}
-                  </div>
+                  </Link>
+                  <Link to="/product/$id" params={{ id: p.slug }} className="block">
                   <div className="flex items-center gap-1.5 mb-1">
                     <span className={`size-2 rounded-full ${p.dot}`} />
                     <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider truncate">
@@ -344,6 +302,7 @@ function Index() {
                       {p.rating}
                     </span>
                   </div>
+                  </Link>
                 </article>
               );
             })}
@@ -419,11 +378,11 @@ function Index() {
       {/* Bottom Nav */}
       <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-xl border-t border-border z-40">
         <div className="mx-auto max-w-md px-6 py-3 pb-5 flex justify-between items-center">
-          <NavItem icon={Home} label={t("Home", "ቤት")} active />
-          <NavItem icon={Search} label={t("Search", "ፍለጋ")} />
-          <NavItem icon={ShoppingBag} label={t("Cart", "ጋሪ")} badge={3} />
-          <NavItem icon={Heart} label={t("Wishlist", "ተወዳጆች")} />
-          <NavItem icon={User} label={t("Profile", "መገለጫ")} />
+          <NavItem to="/" icon={Home} label={t("Home", "ቤት")} active />
+          <NavItem to="/search" icon={Search} label={t("Search", "ፍለጋ")} />
+          <NavItem to="/checkout" icon={ShoppingBag} label={t("Cart", "ጋሪ")} badge={3} />
+          <NavItem to="/search" icon={Heart} label={t("Wishlist", "ተወዳጆች")} />
+          <NavItem to="/" icon={User} label={t("Profile", "መገለጫ")} />
         </div>
       </nav>
     </div>
@@ -431,18 +390,21 @@ function Index() {
 }
 
 function NavItem({
+  to,
   icon: Icon,
   label,
   active,
   badge,
 }: {
+  to: "/" | "/search" | "/checkout";
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   active?: boolean;
   badge?: number;
 }) {
   return (
-    <button
+    <Link
+      to={to}
       className={`flex flex-col items-center gap-1 transition-colors ${
         active ? "text-heritage-red" : "text-ethio-charcoal/40 hover:text-ethio-charcoal"
       }`}
@@ -456,6 +418,6 @@ function NavItem({
         ) : null}
       </div>
       <span className="text-[9px] font-semibold uppercase tracking-wide">{label}</span>
-    </button>
+    </Link>
   );
 }
