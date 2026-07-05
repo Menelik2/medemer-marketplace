@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   Search,
@@ -15,71 +15,29 @@ import {
   BadgeCheck,
   Truck,
 } from "lucide-react";
-import leatherBag from "@/assets/leather-bag.jpg";
-import coffee from "@/assets/coffee.jpg";
-import gabi from "@/assets/gabi.jpg";
-import jewelry from "@/assets/jewelry.jpg";
-import courier from "@/assets/courier.jpg";
+import { PRODUCTS, SELLERS, CATEGORIES, leatherBag, courier } from "@/lib/catalog";
 
 export const Route = createFileRoute("/")({
   component: Index,
 });
 
 type Lang = "en" | "am";
-
-const categories = [
-  { en: "Coffee", am: "ቡና", img: coffee },
-  { en: "Textiles", am: "ጨርቅ", img: gabi },
-  { en: "Jewelry", am: "ጌጣጌጥ", img: jewelry },
-  { en: "Leather", am: "ቆዳ", img: leatherBag },
-];
-
-const products = [
-  {
-    id: 1,
-    seller: "Yirgacheffe Farms",
-    name: "Single Origin Roast",
-    nameAm: "የይርጋጨፌ ቡና",
-    price: 850,
-    rating: 4.9,
-    verified: true,
-    img: coffee,
-    dot: "bg-heritage-green",
-  },
-  {
-    id: 2,
-    seller: "Sheba Textiles",
-    name: "Traditional Gabi Scarf",
-    nameAm: "ባህላዊ ጋቢ",
-    price: 2400,
-    rating: 5.0,
-    verified: true,
-    img: gabi,
-    dot: "bg-heritage-gold",
-  },
-  {
-    id: 3,
-    seller: "Aksum Silver",
-    name: "Meskel Cross Pendant",
-    nameAm: "የመስቀል ሐብል",
-    price: 3200,
-    rating: 4.8,
-    verified: true,
-    img: jewelry,
-    dot: "bg-heritage-red",
-  },
-  {
-    id: 4,
-    seller: "Modjo Leather Co.",
-    name: "Handmade Satchel",
-    nameAm: "የቆዳ ሻንጣ",
-    price: 5600,
-    rating: 4.7,
-    verified: false,
-    img: leatherBag,
-    dot: "bg-heritage-gold",
-  },
-];
+const categories = CATEGORIES;
+const products = PRODUCTS.slice(0, 4).map((p) => {
+  const seller = SELLERS.find((s) => s.id === p.sellerId)!;
+  return {
+    id: p.id,
+    slug: p.slug,
+    seller: seller.name,
+    name: p.name,
+    nameAm: p.nameAm,
+    price: p.price,
+    rating: p.rating,
+    verified: seller.verified,
+    img: p.img,
+    dot: seller.dotClass,
+  };
+});
 
 function Index() {
   const [lang, setLang] = useState<Lang>("en");
