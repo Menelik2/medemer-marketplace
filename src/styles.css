@@ -46,6 +46,14 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
+  --color-heritage-gold: var(--heritage-gold);
+  --color-heritage-red: var(--heritage-red);
+  --color-heritage-green: var(--heritage-green);
+  --color-ethio-charcoal: var(--ethio-charcoal);
+  --color-soft-clay: var(--soft-clay);
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+  --font-amharic: var(--font-amharic);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -63,25 +71,34 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
+  /* Heritage modern luxe — Ethiopia Marketplace */
+  --background: oklch(0.977 0.008 85);     /* soft clay #F9F7F2 */
+  --foreground: oklch(0.18 0.005 60);      /* ethio charcoal #1A1A1A */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
+  --card-foreground: oklch(0.18 0.005 60);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
+  --popover-foreground: oklch(0.18 0.005 60);
+  --primary: oklch(0.45 0.18 30);          /* heritage red #8B0000 */
+  --primary-foreground: oklch(0.98 0.005 85);
+  --secondary: oklch(0.95 0.01 85);
+  --secondary-foreground: oklch(0.18 0.005 60);
+  --muted: oklch(0.94 0.008 85);
+  --muted-foreground: oklch(0.45 0.01 60);
+  --accent: oklch(0.74 0.14 80);           /* heritage gold #D4A017 */
+  --accent-foreground: oklch(0.18 0.005 60);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  --border: oklch(0.18 0.005 60 / 0.08);
+  --input: oklch(0.18 0.005 60 / 0.1);
+  --ring: oklch(0.74 0.14 80 / 0.4);
+  --heritage-gold: oklch(0.74 0.14 80);
+  --heritage-red: oklch(0.45 0.18 30);
+  --heritage-green: oklch(0.36 0.06 140);   /* #2E4C23 */
+  --ethio-charcoal: oklch(0.18 0.005 60);
+  --soft-clay: oklch(0.977 0.008 85);
+  --font-display: "Playfair Display", ui-serif, Georgia, serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-amharic: "Noto Sans Ethiopic", "Inter", sans-serif;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -140,5 +157,10 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
   }
+
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { scrollbar-width: none; }
 }
