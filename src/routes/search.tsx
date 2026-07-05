@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { Search, SlidersHorizontal, BadgeCheck, Star, ArrowLeft, X, Loader2 } from "lucide-react";
-import { CATEGORIES, ETB, type Category } from "@/lib/catalog";
+import { CATEGORIES, ETB, resolveImg, type Category } from "@/lib/catalog";
 import { searchProducts } from "@/lib/marketplace.functions";
 
 export const Route = createFileRoute("/search")({
@@ -138,7 +138,7 @@ function SearchPage() {
                   params={{ id: p.slug }}
                   className="flex gap-3 bg-card border border-border rounded-2xl p-3 shadow-sm hover:shadow-md transition"
                 >
-                  <img src={p.img} alt={p.name} loading="lazy" className="size-20 rounded-xl object-cover shrink-0" />
+                  <img src={resolveImg(p.img, p.category)} alt={p.name} loading="lazy" className="size-20 rounded-xl object-cover shrink-0" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 mb-0.5">
                       <span className={`size-2 rounded-full ${p.seller.dot_class ?? "bg-heritage-gold"}`} />
