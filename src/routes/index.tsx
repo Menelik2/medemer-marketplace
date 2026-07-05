@@ -41,7 +41,7 @@ const products = PRODUCTS.slice(0, 4).map((p) => {
 
 function Index() {
   const [lang, setLang] = useState<Lang>("en");
-  const [wishlist, setWishlist] = useState<Record<number, boolean>>({ 2: true });
+  const [wishlist, setWishlist] = useState<Record<string, boolean>>({ "p-2": true });
   const t = (en: string, am: string) => (lang === "en" ? en : am);
 
   return (
