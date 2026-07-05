@@ -1,12 +1,16 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import {
   ArrowLeft, ChevronRight, MapPin, Wallet, Smartphone, Truck, Check,
   BadgeCheck, Loader2, Copy, Phone,
 } from "lucide-react";
-import { COUPONS, DELIVERY_FEE, ETB, getProduct, getSeller } from "@/lib/catalog";
+import { COUPONS, DELIVERY_FEE, ETB, resolveImg } from "@/lib/catalog";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
+import { createOrder, getProductBySlug } from "@/lib/marketplace.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 const searchSchema = z.object({
   productId: fallback(z.string(), "yirgacheffe-grade-a").default("yirgacheffe-grade-a"),
@@ -31,25 +35,34 @@ type Step = "review" | "pay" | "confirmed";
 function CheckoutPage() {
   const { productId, qty, coupon } = Route.useSearch();
   const navigate = useNavigate();
-  const product = getProduct(productId);
-  const seller = product ? getSeller(product.sellerId) : undefined;
+  const fetchProduct = useServerFn(getProductBySlug);
+  const createOrderFn = useServerFn(createOrder);
+  const { data: p } = useQuery({ queryKey: ["product", productId], queryFn: () => fetchProduct({ data: { slug: productId } }) });
+  const seller = (p as any)?.sellers;
 
   const [step, setStep] = useState<Step>("review");
   const [method, setMethod] = useState<Method>("telebirr");
   const [processing, setProcessing] = useState(false);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [confirmedOrderId, setConfirmedOrderId] = useState<string | null>(null);
   const [address, setAddress] = useState({ name: "Rahel Bekele", phone: "+251 91 234 5678", area: "Bole, Addis Ababa" });
   const orderId = useMemo(() => "ADX-" + Math.floor(1000 + Math.random() * 9000), []);
 
-  if (!product || !seller) {
+  useEffect(() => {
+    // prompt sign-in
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) navigate({ to: "/auth" });
+    });
+  }, [navigate]);
+
+  if (!p || !seller) {
     return (
       <div className="min-h-screen grid place-items-center p-6 text-center">
-        <div>
-          <p className="text-sm mb-3">Product not available for checkout.</p>
-          <Link to="/" className="text-heritage-gold font-semibold text-sm">← Back home</Link>
-        </div>
+        <Loader2 className="size-6 animate-spin text-heritage-gold" />
       </div>
     );
   }
+  const product = { ...p, img: resolveImg(p.img, p.category), price: Number(p.price) };
 
   const subtotal = product.price * qty;
   const appliedCoupon = coupon && COUPONS[coupon] ? coupon : null;
@@ -58,15 +71,30 @@ function CheckoutPage() {
       ? Math.round((subtotal * COUPONS[appliedCoupon].value) / 100)
       : COUPONS[appliedCoupon].value
     : 0;
-  const delivery = appliedCoupon === "FREESHIP" || method === "cod" ? (method === "cod" ? DELIVERY_FEE : 0) : DELIVERY_FEE;
+  const delivery = appliedCoupon === "FREESHIP" ? 0 : DELIVERY_FEE;
   const total = Math.max(0, subtotal - discount) + delivery;
 
-  const pay = () => {
+  const pay = async () => {
     setProcessing(true);
-    setTimeout(() => {
-      setProcessing(false);
+    setConfirmError(null);
+    try {
+      const res = await createOrderFn({
+        data: {
+          items: [{ productId: product.id, quantity: qty }],
+          paymentMethod: method,
+          couponCode: appliedCoupon,
+          address: `${address.name}, ${address.area}`,
+          city: "Addis Ababa",
+          phone: address.phone,
+        },
+      });
+      setConfirmedOrderId(res.orderId);
       setStep("confirmed");
-    }, method === "cod" ? 700 : 1600);
+    } catch (err) {
+      setConfirmError(err instanceof Error ? err.message : "Checkout failed");
+    } finally {
+      setProcessing(false);
+    }
   };
 
   return (
@@ -88,7 +116,7 @@ function CheckoutPage() {
 
       <main className="mx-auto max-w-md px-4 pt-4">
         {step === "confirmed" ? (
-          <Confirmation orderId={orderId} method={method} total={total} address={address} product={product} sellerName={seller.name} />
+          <Confirmation orderId={confirmedOrderId ?? orderId} method={method} total={total} address={address} product={product} sellerName={seller.name} />
         ) : (
           <>
             {/* Item summary */}
@@ -172,6 +200,10 @@ function CheckoutPage() {
                     : "You'll be redirected to Chapa's secure checkout."}
                 </p>
               </section>
+            )}
+
+            {confirmError && (
+              <p className="mt-3 text-xs text-heritage-red text-center">{confirmError}</p>
             )}
           </>
         )}
@@ -271,7 +303,7 @@ function Confirmation({
 }: {
   orderId: string; method: Method; total: number;
   address: { name: string; phone: string; area: string };
-  product: ReturnType<typeof getProduct> & object;
+  product: { name: string; img: string };
   sellerName: string;
 }) {
   const stages = [
@@ -334,8 +366,8 @@ function Confirmation({
         <a href={`tel:${address.phone.replace(/\s/g, "")}`} className="h-11 rounded-full bg-heritage-gold text-ethio-charcoal font-bold text-sm flex items-center justify-center gap-2">
           <Phone className="size-4" /> Call courier
         </a>
-        <Link to="/" className="h-11 rounded-full bg-card border border-border text-ethio-charcoal font-bold text-sm flex items-center justify-center">
-          Done
+        <Link to="/orders" className="h-11 rounded-full bg-card border border-border text-ethio-charcoal font-bold text-sm flex items-center justify-center">
+          View orders
         </Link>
       </div>
     </div>

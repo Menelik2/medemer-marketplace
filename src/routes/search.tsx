@@ -1,7 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { Search, SlidersHorizontal, BadgeCheck, Star, ArrowLeft, X } from "lucide-react";
-import { CATEGORIES, ETB, searchCatalog, type Category, type SearchFilters } from "@/lib/catalog";
+import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
+import { Search, SlidersHorizontal, BadgeCheck, Star, ArrowLeft, X, Loader2 } from "lucide-react";
+import { CATEGORIES, ETB, resolveImg, type Category } from "@/lib/catalog";
+import { searchProducts } from "@/lib/marketplace.functions";
 
 export const Route = createFileRoute("/search")({
   head: () => ({
@@ -20,8 +23,15 @@ function SearchPage() {
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
-  const filters: SearchFilters = { q, category, max: priceMax, verifiedOnly };
-  const { hits, suggestions, facets } = useMemo(() => searchCatalog(filters), [q, category, priceMax, verifiedOnly]);
+  const runSearch = useServerFn(searchProducts);
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ["search", q, category, priceMax, verifiedOnly],
+    queryFn: () => runSearch({ data: { q, category, max: priceMax, verifiedOnly } }),
+    placeholderData: (prev) => prev,
+  });
+  const hits = data?.hits ?? [];
+  const suggestions = data?.suggestions ?? [];
+  const facets = data?.facets ?? { categories: {} as Record<string, number>, priceRange: [0, 6000] as [number, number], verified: 0 };
   const activeCount = [category, verifiedOnly, priceMax < 6000].filter(Boolean).length;
 
   return (
@@ -91,8 +101,8 @@ function SearchPage() {
               </div>
               <input
                 type="range"
-                min={facets.priceRange[0]}
-                max={facets.priceRange[1]}
+                min={facets.priceRange[0] || 0}
+                max={facets.priceRange[1] || 6000}
                 step={100}
                 value={priceMax}
                 onChange={(e) => setPriceMax(Number(e.target.value))}
@@ -112,32 +122,33 @@ function SearchPage() {
       </header>
 
       <main className="mx-auto max-w-md px-4 pt-4">
-        <p className="text-xs text-muted-foreground mb-3">
+        <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1.5">
           <span className="font-semibold text-ethio-charcoal">{hits.length}</span> results
+          {(isLoading || isFetching) && <Loader2 className="size-3 animate-spin" />}
         </p>
 
-        {hits.length === 0 ? (
+        {hits.length === 0 && !isLoading ? (
           <div className="text-center py-16 text-muted-foreground text-sm">No products match those filters.</div>
         ) : (
           <ul className="space-y-3">
-            {hits.map((p) => (
+            {hits.map((p: any) => (
               <li key={p.id}>
                 <Link
                   to="/product/$id"
                   params={{ id: p.slug }}
                   className="flex gap-3 bg-card border border-border rounded-2xl p-3 shadow-sm hover:shadow-md transition"
                 >
-                  <img src={p.img} alt={p.name} loading="lazy" className="size-20 rounded-xl object-cover shrink-0" />
+                  <img src={resolveImg(p.img, p.category)} alt={p.name} loading="lazy" className="size-20 rounded-xl object-cover shrink-0" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className={`size-2 rounded-full ${p.seller.dotClass}`} />
+                      <span className={`size-2 rounded-full ${p.seller.dot_class ?? "bg-heritage-gold"}`} />
                       <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">{p.seller.name}</span>
                       {p.seller.verified && <BadgeCheck className="size-3 text-heritage-gold shrink-0" />}
                     </div>
                     <h3 className="text-sm font-semibold truncate">{p.name}</h3>
                     <p className="text-[11px] text-muted-foreground line-clamp-1">{p.description}</p>
                     <div className="mt-1 flex items-center justify-between">
-                      <span className="font-display font-bold text-heritage-gold">{ETB(p.price)}</span>
+                      <span className="font-display font-bold text-heritage-gold">{ETB(Number(p.price))}</span>
                       <span className="text-[10px] flex items-center gap-0.5 text-heritage-gold font-semibold">
                         <Star className="size-3 fill-current" />
                         {p.rating}
