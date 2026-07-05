@@ -378,11 +378,11 @@ function Index() {
       {/* Bottom Nav */}
       <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-xl border-t border-border z-40">
         <div className="mx-auto max-w-md px-6 py-3 pb-5 flex justify-between items-center">
-          <NavItem icon={Home} label={t("Home", "ቤት")} active />
-          <NavItem icon={Search} label={t("Search", "ፍለጋ")} />
-          <NavItem icon={ShoppingBag} label={t("Cart", "ጋሪ")} badge={3} />
-          <NavItem icon={Heart} label={t("Wishlist", "ተወዳጆች")} />
-          <NavItem icon={User} label={t("Profile", "መገለጫ")} />
+          <NavItem to="/" icon={Home} label={t("Home", "ቤት")} active />
+          <NavItem to="/search" icon={Search} label={t("Search", "ፍለጋ")} />
+          <NavItem to="/checkout" icon={ShoppingBag} label={t("Cart", "ጋሪ")} badge={3} />
+          <NavItem to="/search" icon={Heart} label={t("Wishlist", "ተወዳጆች")} />
+          <NavItem to="/" icon={User} label={t("Profile", "መገለጫ")} />
         </div>
       </nav>
     </div>
@@ -390,18 +390,21 @@ function Index() {
 }
 
 function NavItem({
+  to,
   icon: Icon,
   label,
   active,
   badge,
 }: {
+  to: "/" | "/search" | "/checkout";
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   active?: boolean;
   badge?: number;
 }) {
   return (
-    <button
+    <Link
+      to={to}
       className={`flex flex-col items-center gap-1 transition-colors ${
         active ? "text-heritage-red" : "text-ethio-charcoal/40 hover:text-ethio-charcoal"
       }`}
@@ -415,6 +418,6 @@ function NavItem({
         ) : null}
       </div>
       <span className="text-[9px] font-semibold uppercase tracking-wide">{label}</span>
-    </button>
+    </Link>
   );
 }
