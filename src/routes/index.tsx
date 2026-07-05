@@ -14,6 +14,8 @@ import {
   ArrowRight,
   BadgeCheck,
   Truck,
+  Bell,
+  Package,
 } from "lucide-react";
 import { PRODUCTS, SELLERS, CATEGORIES, leatherBag, courier } from "@/lib/catalog";
 
@@ -380,9 +382,9 @@ function Index() {
         <div className="mx-auto max-w-md px-6 py-3 pb-5 flex justify-between items-center">
           <NavItem to="/" icon={Home} label={t("Home", "ቤት")} active />
           <NavItem to="/search" icon={Search} label={t("Search", "ፍለጋ")} />
-          <NavItem to="/checkout" icon={ShoppingBag} label={t("Cart", "ጋሪ")} badge={3} />
-          <NavItem to="/search" icon={Heart} label={t("Wishlist", "ተወዳጆች")} />
-          <NavItem to="/" icon={User} label={t("Profile", "መገለጫ")} />
+          <NavItem to="/_authenticated/orders" icon={Package} label={t("Orders", "ትዕዛዞች")} />
+          <NavItem to="/_authenticated/wallet" icon={Wallet} label={t("Wallet", "ቦርሳ")} />
+          <NavItem to="/_authenticated/notifications" icon={Bell} label={t("Alerts", "ማሳወቂያ")} />
         </div>
       </nav>
     </div>
@@ -396,7 +398,7 @@ function NavItem({
   active,
   badge,
 }: {
-  to: "/" | "/search" | "/checkout";
+  to: string;
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   active?: boolean;
