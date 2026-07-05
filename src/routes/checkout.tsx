@@ -366,8 +366,8 @@ function Confirmation({
         <a href={`tel:${address.phone.replace(/\s/g, "")}`} className="h-11 rounded-full bg-heritage-gold text-ethio-charcoal font-bold text-sm flex items-center justify-center gap-2">
           <Phone className="size-4" /> Call courier
         </a>
-        <Link to="/" className="h-11 rounded-full bg-card border border-border text-ethio-charcoal font-bold text-sm flex items-center justify-center">
-          Done
+        <Link to="/orders" className="h-11 rounded-full bg-card border border-border text-ethio-charcoal font-bold text-sm flex items-center justify-center">
+          View orders
         </Link>
       </div>
     </div>
