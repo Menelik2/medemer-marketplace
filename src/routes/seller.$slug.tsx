@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { ArrowLeft, BadgeCheck, Phone, MessageCircle, Star, MapPin, TrendingUp } from "lucide-react";
-import { ETB, getSeller, sellerProducts } from "@/lib/catalog";
+import { ETB, getSeller, sellerProducts, type Product } from "@/lib/catalog";
 
 export const Route = createFileRoute("/seller/$slug")({
   loader: ({ params }) => {
@@ -105,7 +105,7 @@ function SellerPage() {
           </div>
 
           <ul className="space-y-3">
-            {products.map((p) => {
+            {products.map((p: Product) => {
               const commissionOnItem = Math.round((p.price * p.commissionPct) / 100);
               const payout = p.price - commissionOnItem;
               return (
