@@ -250,8 +250,20 @@ function Index() {
               return (
                 <article
                   key={p.id}
-                  className="bg-card rounded-2xl p-3 border border-border shadow-sm hover:shadow-md transition-shadow"
+                  className="relative bg-card rounded-2xl p-3 border border-border shadow-sm hover:shadow-md transition-shadow"
                 >
+                  <button
+                    onClick={() =>
+                      setWishlist((w) => ({ ...w, [p.id]: !w[p.id] }))
+                    }
+                    className="absolute top-5 right-5 z-10 size-8 bg-background/90 backdrop-blur rounded-full grid place-items-center text-heritage-red shadow-sm hover:scale-110 transition-transform"
+                    aria-label="Toggle wishlist"
+                  >
+                    <Heart
+                      className="size-4"
+                      fill={liked ? "currentColor" : "none"}
+                    />
+                  </button>
                   <Link to="/product/$id" params={{ id: p.slug }} className="block relative">
                     <div className="w-full aspect-square rounded-xl overflow-hidden bg-soft-clay mb-3">
                       <img
@@ -268,23 +280,8 @@ function Index() {
                       </div>
                     )}
                   </Link>
-                  <div className="relative">
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setWishlist((w) => ({ ...w, [p.id]: !w[p.id] }));
-                      }}
-                      className="absolute top-2 right-2 size-8 bg-background/90 backdrop-blur rounded-full grid place-items-center text-heritage-red shadow-sm hover:scale-110 transition-transform"
-                      aria-label="Toggle wishlist"
-                    >
-                      <Heart
-                        className="size-4"
-                        fill={liked ? "currentColor" : "none"}
-                      />
-                    </button>
-                  </div>
                   <Link to="/product/$id" params={{ id: p.slug }} className="block">
-                  <div className="flex items-center gap-1.5 mb-1 mt-2">
+                  <div className="flex items-center gap-1.5 mb-1">
                     <span className={`size-2 rounded-full ${p.dot}`} />
                     <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider truncate">
                       {p.seller}
