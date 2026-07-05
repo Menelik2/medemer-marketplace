@@ -382,9 +382,9 @@ function Index() {
         <div className="mx-auto max-w-md px-6 py-3 pb-5 flex justify-between items-center">
           <NavItem to="/" icon={Home} label={t("Home", "ቤት")} active />
           <NavItem to="/search" icon={Search} label={t("Search", "ፍለጋ")} />
-          <NavItem to="/_authenticated/orders" icon={Package} label={t("Orders", "ትዕዛዞች")} />
-          <NavItem to="/_authenticated/wallet" icon={Wallet} label={t("Wallet", "ቦርሳ")} />
-          <NavItem to="/_authenticated/notifications" icon={Bell} label={t("Alerts", "ማሳወቂያ")} />
+          <NavItem to="/orders" icon={Package} label={t("Orders", "ትዕዛዞች")} />
+          <NavItem to="/wallet" icon={Wallet} label={t("Wallet", "ቦርሳ")} />
+          <NavItem to="/notifications" icon={Bell} label={t("Alerts", "ማሳወቂያ")} />
         </div>
       </nav>
     </div>
