@@ -406,7 +406,7 @@ function NavItem({
 }) {
   return (
     <Link
-      to={to}
+      to={to as "/"}
       className={`flex flex-col items-center gap-1 transition-colors ${
         active ? "text-heritage-red" : "text-ethio-charcoal/40 hover:text-ethio-charcoal"
       }`}
