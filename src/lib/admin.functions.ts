@@ -100,7 +100,7 @@ export const adminListOrders = createServerFn({ method: "GET" })
       .select("*, order_items(*, products(name,img,slug)), profiles!orders_user_id_fkey(display_name)")
       .order("created_at", { ascending: false })
       .limit(100);
-    if (data.status) q = q.eq("status", data.status);
+    if (data.status) q = q.eq("status", data.status as any);
     const { data: rows } = await q;
     return rows ?? [];
   });
@@ -188,7 +188,8 @@ export const adminDecideWithdrawal = createServerFn({ method: "POST" })
     if (wr.status !== "pending") throw new Error("Already processed");
 
     const { error: uErr } = await sb.from("withdrawal_requests").update({
-      status: data.decision, admin_note: data.note ?? null, processed_at: new Date().toISOString(),
+      status: data.decision as any,
+      admin_note: data.note ?? null,
     }).eq("id", data.id);
     if (uErr) throw new Error(uErr.message);
 
