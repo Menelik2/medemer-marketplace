@@ -204,9 +204,9 @@ function Index() {
                 {t("Curated by our editors", "በእኛ የተመረጡ")}
               </p>
             </div>
-            <button className="text-heritage-gold text-xs font-semibold flex items-center gap-1">
+            <Link to="/search" className="text-heritage-gold text-xs font-semibold flex items-center gap-1">
               {t("All", "ሁሉም")} <ArrowRight className="size-3" />
-            </button>
+            </Link>
           </div>
           <div className="grid grid-cols-4 gap-3">
             {categories.map((c) => (
@@ -241,9 +241,9 @@ function Index() {
                 {t("From verified local sellers", "ከተረጋገጡ ሻጮች")}
               </p>
             </div>
-            <button className="text-heritage-gold text-xs font-semibold flex items-center gap-1">
+            <Link to="/search" className="text-heritage-gold text-xs font-semibold flex items-center gap-1">
               {t("View All", "ሁሉንም ተመልከት")} <ArrowRight className="size-3" />
-            </button>
+            </Link>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -276,7 +276,7 @@ function Index() {
                       />
                     </div>
                     {p.verified && (
-                      <div className="absolute bottom-5 left-2 bg-ethio-charcoal/80 backdrop-blur text-soft-clay text-[8px] font-bold px-2 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                      <div className="absolute bottom-5 left-2 bg-ethio-charcoal/80 backdrop-blur text-soft-clay text-[8px] font-bold px-2 py-1 rounded-full uppercase tracking-wider flex items-center gap-0.5">
                         <BadgeCheck className="size-2.5" />
                         {t("Verified", "የተረጋገጠ")}
                       </div>
