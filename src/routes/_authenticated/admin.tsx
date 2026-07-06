@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   ArrowLeft, LayoutDashboard, Package, Users, Store, Wallet, Star, ShieldCheck,
-  Loader2, Check, X, Trash2, TrendingUp, AlertTriangle, Crown,
+  Loader2, Check, X, Trash2, TrendingUp, AlertTriangle, Crown, Lock,
 } from "lucide-react";
 import {
   amIAdmin, claimAdminIfNone, getAdminStats,
@@ -65,10 +65,19 @@ function AdminDashboard() {
   return (
     <div className="min-h-screen bg-soft-clay pb-16">
       <header className="sticky top-0 z-40 bg-background/90 backdrop-blur-md border-b border-border">
-        <div className="mx-auto max-w-5xl px-4 py-3 flex items-center gap-3">
-          <Link to="/" className="size-9 grid place-items-center rounded-full hover:bg-muted"><ArrowLeft className="size-4" /></Link>
-          <ShieldCheck className="size-5 text-heritage-gold" />
-          <h1 className="font-display text-lg">Admin dashboard</h1>
+        <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link to="/" className="size-9 grid place-items-center rounded-full hover:bg-muted"><ArrowLeft className="size-4" /></Link>
+            <ShieldCheck className="size-5 text-heritage-gold" />
+            <h1 className="font-display text-lg">Admin dashboard</h1>
+          </div>
+          <Link
+            to="/admin/roles"
+            className="size-9 grid place-items-center rounded-full hover:bg-muted text-heritage-gold"
+            title="Manage admin roles"
+          >
+            <Lock className="size-4" />
+          </Link>
         </div>
         <nav className="mx-auto max-w-5xl px-4 pb-2 flex gap-1 overflow-x-auto no-scrollbar">
           {(
