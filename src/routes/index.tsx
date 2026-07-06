@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   Search,
@@ -44,7 +44,12 @@ const products = PRODUCTS.slice(0, 4).map((p) => {
 function Index() {
   const [lang, setLang] = useState<Lang>("en");
   const [wishlist, setWishlist] = useState<Record<string, boolean>>({ "p-2": true });
+  const navigate = useNavigate();
   const t = (en: string, am: string) => (lang === "en" ? en : am);
+
+  const handleCategoryClick = (categoryKey: string) => {
+    navigate({ to: "/search", search: { category: categoryKey } });
+  };
 
   return (
     <div className="min-h-screen bg-soft-clay text-ethio-charcoal pb-28">
@@ -211,8 +216,9 @@ function Index() {
           <div className="grid grid-cols-4 gap-3">
             {categories.map((c) => (
               <button
-                key={c.en}
-                className="group flex flex-col items-center gap-2"
+                key={c.key}
+                onClick={() => handleCategoryClick(c.key)}
+                className="group flex flex-col items-center gap-2 hover:opacity-80 transition-opacity"
               >
                 <div className="w-full aspect-square rounded-2xl overflow-hidden bg-card border border-border shadow-sm group-hover:shadow-md transition-shadow">
                   <img
