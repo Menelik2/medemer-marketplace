@@ -347,3 +347,57 @@ export const simulateDeliveryProgress = createServerFn({ method: "POST" })
     await supabaseAdmin.from("orders").update({ status: "delivered" }).eq("id", order.id);
     return { ok: true };
   });
+
+/* ---------------- DELIVERY: validated update (admin/courier) ---------------- */
+
+const DELIVERY_STATUSES = ["picked_up", "shipped", "in_transit", "out_for_delivery", "delivered", "failed"] as const;
+
+const deliveryUpdateSchema = z.object({
+  orderId: z.string().uuid("Invalid order id"),
+  status: z.enum(DELIVERY_STATUSES),
+  note: z.string().trim().max(500).optional(),
+  lat: z.number().min(-90).max(90).optional(),
+  lng: z.number().min(-180).max(180).optional(),
+  photoUrl: z.string().url().max(2048).optional(),
+  signatureUrl: z.string().url().max(2048).optional(),
+});
+
+export const postDeliveryUpdate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => deliveryUpdateSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    // Only admins may post real delivery updates. RLS also enforces this on the table.
+    const { data: isAdmin } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (!isAdmin) throw new Error("Forbidden: courier/admin role required");
+
+    // Ensure the order exists before writing an update.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: order } = await supabaseAdmin
+      .from("orders").select("id,status").eq("id", data.orderId).maybeSingle();
+    if (!order) throw new Error("Order not found");
+
+    // 'delivered' requires proof — signature and/or photo.
+    if (data.status === "delivered" && !data.signatureUrl && !data.photoUrl) {
+      throw new Error("Delivery proof required: attach a photo or signature.");
+    }
+
+    const { error } = await supabaseAdmin.from("delivery_updates").insert({
+      order_id: data.orderId,
+      status: data.status,
+      note: data.note ?? null,
+      lat: data.lat ?? null,
+      lng: data.lng ?? null,
+      photo_url: data.photoUrl ?? null,
+      signature_url: data.signatureUrl ?? null,
+    });
+    if (error) throw new Error(error.message);
+
+    // Mirror terminal statuses onto the order row.
+    if (data.status === "delivered" || data.status === "shipped") {
+      await supabaseAdmin.from("orders").update({ status: data.status }).eq("id", data.orderId);
+    }
+    return { ok: true };
+  });
