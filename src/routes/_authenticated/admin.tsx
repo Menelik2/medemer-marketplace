@@ -5,12 +5,14 @@ import { useState } from "react";
 import {
   ArrowLeft, LayoutDashboard, Package, Users, Store, Wallet, Star, ShieldCheck,
   Loader2, Check, X, Trash2, TrendingUp, AlertTriangle, Crown, Lock,
+  BarChart3, Pencil, Search as SearchIcon,
 } from "lucide-react";
 import {
   amIAdmin, claimAdminIfNone, getAdminStats,
   adminListOrders, adminUpdateOrderStatus,
   adminListSellers, adminSetSellerVerified,
-  adminListProducts, adminDeleteProduct,
+  adminListProducts, adminDeleteProduct, adminUpdateProduct,
+  adminListUsers, getAdminAnalytics,
   adminListWithdrawals, adminDecideWithdrawal,
   adminListReviews, adminSetReviewApproved,
 } from "@/lib/admin.functions";
@@ -20,7 +22,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminDashboard,
 });
 
-type Tab = "overview" | "orders" | "sellers" | "products" | "withdrawals" | "reviews";
+type Tab = "overview" | "orders" | "sellers" | "products" | "customers" | "analytics" | "withdrawals" | "reviews";
 
 function AdminDashboard() {
   const check = useServerFn(amIAdmin);
@@ -86,6 +88,8 @@ function AdminDashboard() {
               ["orders", "Orders", Package],
               ["sellers", "Sellers", Store],
               ["products", "Products", Package],
+              ["customers", "Customers", Users],
+              ["analytics", "Analytics", BarChart3],
               ["withdrawals", "Withdrawals", Wallet],
               ["reviews", "Reviews", Star],
             ] as [Tab, string, any][]
@@ -108,6 +112,8 @@ function AdminDashboard() {
         {tab === "orders" && <OrdersPanel />}
         {tab === "sellers" && <SellersPanel />}
         {tab === "products" && <ProductsPanel />}
+        {tab === "customers" && <CustomersPanel />}
+        {tab === "analytics" && <AnalyticsPanel />}
         {tab === "withdrawals" && <WithdrawalsPanel />}
         {tab === "reviews" && <ReviewsPanel />}
       </main>
