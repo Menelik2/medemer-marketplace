@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   ArrowLeft, Crown, Shield, Plus, X, Trash2, Search as SearchIcon,
-  Loader2, Check, AlertCircle, LogHistory, User, Mail, Calendar,
+  Loader2, Check, AlertCircle, History, User, Mail, Calendar,
 } from "lucide-react";
 import {
   listAllAdmins,
@@ -36,7 +36,7 @@ function AdminRolesPage() {
             [
               ["list", "Admins", Shield],
               ["grant", "Grant Role", Plus],
-              ["audit", "Audit Log", LogHistory],
+              ["audit", "Audit Log", History],
             ] as [typeof view, string, any][]
           ).map(([id, label, Icon]) => (
             <button
@@ -365,7 +365,7 @@ function AuditLogPanel() {
   if (!data?.available) {
     return (
       <div className="text-center py-14">
-        <LogHistory className="size-8 mx-auto text-muted-foreground mb-2" />
+        <History className="size-8 mx-auto text-muted-foreground mb-2" />
         <p className="text-sm text-muted-foreground">Audit log not yet available</p>
         <p className="text-xs text-muted-foreground mt-1">
           Create the admin_audit_log table to enable audit tracking
@@ -377,7 +377,7 @@ function AuditLogPanel() {
   if (data.logs.length === 0) {
     return (
       <div className="text-center py-14">
-        <LogHistory className="size-8 mx-auto text-muted-foreground mb-2" />
+        <History className="size-8 mx-auto text-muted-foreground mb-2" />
         <p className="text-sm text-muted-foreground">No audit events yet</p>
       </div>
     );
