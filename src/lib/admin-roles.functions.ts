@@ -107,7 +107,7 @@ export const grantAdminRole = createServerFn({ method: "POST" })
 
     // Log the action in audit trail (if audit table exists)
     try {
-      await sb.from("admin_audit_log").insert({
+      await (sb as any).from("admin_audit_log").insert({
         admin_id: context.userId,
         action: "grant_admin",
         target_user_id: userId,
@@ -177,7 +177,7 @@ export const revokeAdminRole = createServerFn({ method: "POST" })
 
     // Log the action in audit trail
     try {
-      await sb.from("admin_audit_log").insert({
+      await (sb as any).from("admin_audit_log").insert({
         admin_id: context.userId,
         action: "revoke_admin",
         target_user_id: userId,
@@ -252,7 +252,7 @@ export const getAdminAuditLog = createServerFn({ method: "GET" })
 
     // Attempt to fetch audit log; table may not exist
     try {
-      const { data: logs, error } = await sb
+      const { data: logs, error } = await (sb as any)
         .from("admin_audit_log")
         .select(
           `
