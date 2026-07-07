@@ -177,7 +177,7 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
     if (data.stock !== undefined) patch.stock = data.stock;
     if (data.name !== undefined) patch.name = data.name;
     if (!Object.keys(patch).length) return { ok: true };
-    const { error } = await context.supabase.from("products").update(patch).eq("id", data.productId);
+    const { error } = await (context.supabase as any).from("products").update(patch).eq("id", data.productId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
