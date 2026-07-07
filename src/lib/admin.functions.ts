@@ -160,6 +160,163 @@ export const adminDeleteProduct = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const adminUpdateProduct = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      productId: z.string().uuid(),
+      price: z.number().nonnegative().optional(),
+      stock: z.number().int().min(0).optional(),
+      name: z.string().min(1).max(200).optional(),
+    }).parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const patch: Record<string, any> = {};
+    if (data.price !== undefined) patch.price = data.price;
+    if (data.stock !== undefined) patch.stock = data.stock;
+    if (data.name !== undefined) patch.name = data.name;
+    if (!Object.keys(patch).length) return { ok: true };
+    const { error } = await context.supabase.from("products").update(patch).eq("id", data.productId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/* -------- Customers / users -------- */
+
+export const adminListUsers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ query: z.string().max(100).optional() }).parse(d ?? {})
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const sb = context.supabase;
+    let q = sb.from("profiles").select("id,display_name,created_at").order("created_at", { ascending: false }).limit(200);
+    if (data.query) q = q.ilike("display_name", `%${data.query}%`);
+    const { data: profiles } = await q;
+    const ids = (profiles ?? []).map((p: any) => p.id);
+    if (!ids.length) return [];
+
+    const [rolesRes, ordersRes] = await Promise.all([
+      sb.from("user_roles").select("user_id,role").in("user_id", ids),
+      sb.from("orders").select("user_id,total,status").in("user_id", ids),
+    ]);
+    const roleMap: Record<string, string[]> = {};
+    (rolesRes.data ?? []).forEach((r: any) => {
+      (roleMap[r.user_id] ||= []).push(r.role);
+    });
+    const orderMap: Record<string, { count: number; spent: number }> = {};
+    (ordersRes.data ?? []).forEach((o: any) => {
+      const e = (orderMap[o.user_id] ||= { count: 0, spent: 0 });
+      e.count += 1;
+      if (o.status !== "cancelled") e.spent += Number(o.total);
+    });
+
+    return (profiles ?? []).map((p: any) => ({
+      id: p.id,
+      displayName: p.display_name,
+      createdAt: p.created_at,
+      roles: roleMap[p.id] ?? ["customer"],
+      isAdmin: (roleMap[p.id] ?? []).includes("admin"),
+      ordersCount: orderMap[p.id]?.count ?? 0,
+      totalSpent: orderMap[p.id]?.spent ?? 0,
+    }));
+  });
+
+/* -------- Analytics & reports -------- */
+
+export const getAdminAnalytics = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const sb = context.supabase;
+    const [ordersRes, itemsRes, productsRes, sellersRes] = await Promise.all([
+      sb.from("orders").select("id,total,status,payment_method,created_at").order("created_at", { ascending: false }).limit(1000),
+      sb.from("order_items").select("product_id,seller_id,qty,price,order_id"),
+      sb.from("products").select("id,name,category,price,img"),
+      sb.from("sellers").select("id,name,slug,verified"),
+    ]);
+    const orders = ordersRes.data ?? [];
+    const items = itemsRes.data ?? [];
+    const products = productsRes.data ?? [];
+    const sellers = sellersRes.data ?? [];
+
+    const paidOrderIds = new Set(
+      orders.filter((o: any) => o.status !== "cancelled" && o.status !== "pending").map((o: any) => o.id)
+    );
+    const paidItems = items.filter((i: any) => paidOrderIds.has(i.order_id));
+
+    // Top sellers by GMV
+    const bySeller: Record<string, number> = {};
+    paidItems.forEach((i: any) => {
+      bySeller[i.seller_id] = (bySeller[i.seller_id] ?? 0) + Number(i.price) * Number(i.qty);
+    });
+    const topSellers = Object.entries(bySeller)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([id, gmv]) => {
+        const s = sellers.find((x: any) => x.id === id);
+        return { id, name: s?.name ?? "Unknown", slug: s?.slug, verified: !!s?.verified, gmv };
+      });
+
+    // Category revenue
+    const byCategory: Record<string, number> = {};
+    paidItems.forEach((i: any) => {
+      const p = products.find((x: any) => x.id === i.product_id);
+      const cat = p?.category ?? "Uncategorized";
+      byCategory[cat] = (byCategory[cat] ?? 0) + Number(i.price) * Number(i.qty);
+    });
+    const categoryRevenue = Object.entries(byCategory)
+      .sort((a, b) => b[1] - a[1])
+      .map(([category, revenue]) => ({ category, revenue }));
+
+    // Payment method mix
+    const byMethod: Record<string, number> = {};
+    orders.forEach((o: any) => {
+      const key = o.payment_method || "unknown";
+      byMethod[key] = (byMethod[key] ?? 0) + 1;
+    });
+
+    // Order status funnel
+    const statusFunnel: Record<string, number> = {};
+    orders.forEach((o: any) => {
+      statusFunnel[o.status] = (statusFunnel[o.status] ?? 0) + 1;
+    });
+
+    // Best selling products (by qty)
+    const byProduct: Record<string, number> = {};
+    paidItems.forEach((i: any) => {
+      byProduct[i.product_id] = (byProduct[i.product_id] ?? 0) + Number(i.qty);
+    });
+    const topProducts = Object.entries(byProduct)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([id, qty]) => {
+        const p = products.find((x: any) => x.id === id);
+        return { id, name: p?.name ?? "Unknown", img: p?.img, qty };
+      });
+
+    const totalGMV = paidItems.reduce((s: number, i: any) => s + Number(i.price) * Number(i.qty), 0);
+    const avgOrderValue = paidOrderIds.size ? totalGMV / paidOrderIds.size : 0;
+    const conversion = orders.length ? paidOrderIds.size / orders.length : 0;
+
+    return {
+      totals: {
+        totalGMV,
+        avgOrderValue,
+        conversion,
+        paidOrders: paidOrderIds.size,
+        allOrders: orders.length,
+      },
+      topSellers,
+      topProducts,
+      categoryRevenue,
+      paymentMix: Object.entries(byMethod).map(([k, v]) => ({ method: k, count: v })),
+      statusFunnel: Object.entries(statusFunnel).map(([k, v]) => ({ status: k, count: v })),
+    };
+  });
+
 /* -------- Withdrawals -------- */
 
 export const adminListWithdrawals = createServerFn({ method: "GET" })

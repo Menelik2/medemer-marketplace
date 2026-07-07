@@ -16,6 +16,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SellerSlugRouteImport } from './routes/seller.$slug'
 import { Route as ProductIdRouteImport } from './routes/product.$id'
+import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
 import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated/orders'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
@@ -56,6 +57,11 @@ const ProductIdRoute = ProductIdRouteImport.update({
   path: '/product/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/admin/login',
+  path: '/admin/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedWalletRoute = AuthenticatedWalletRouteImport.update({
   id: '/wallet',
   path: '/wallet',
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/orders': typeof AuthenticatedOrdersRoute
   '/wallet': typeof AuthenticatedWalletRoute
+  '/admin/login': typeof AdminLoginRoute
   '/product/$id': typeof ProductIdRoute
   '/seller/$slug': typeof SellerSlugRoute
   '/admin/roles': typeof AuthenticatedAdminRolesRoute
@@ -105,6 +112,7 @@ export interface FileRoutesByTo {
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/orders': typeof AuthenticatedOrdersRoute
   '/wallet': typeof AuthenticatedWalletRoute
+  '/admin/login': typeof AdminLoginRoute
   '/product/$id': typeof ProductIdRoute
   '/seller/$slug': typeof SellerSlugRoute
   '/admin/roles': typeof AuthenticatedAdminRolesRoute
@@ -120,6 +128,7 @@ export interface FileRoutesById {
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/orders': typeof AuthenticatedOrdersRoute
   '/_authenticated/wallet': typeof AuthenticatedWalletRoute
+  '/admin/login': typeof AdminLoginRoute
   '/product/$id': typeof ProductIdRoute
   '/seller/$slug': typeof SellerSlugRoute
   '/_authenticated/admin/roles': typeof AuthenticatedAdminRolesRoute
@@ -135,6 +144,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/orders'
     | '/wallet'
+    | '/admin/login'
     | '/product/$id'
     | '/seller/$slug'
     | '/admin/roles'
@@ -148,6 +158,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/orders'
     | '/wallet'
+    | '/admin/login'
     | '/product/$id'
     | '/seller/$slug'
     | '/admin/roles'
@@ -162,6 +173,7 @@ export interface FileRouteTypes {
     | '/_authenticated/notifications'
     | '/_authenticated/orders'
     | '/_authenticated/wallet'
+    | '/admin/login'
     | '/product/$id'
     | '/seller/$slug'
     | '/_authenticated/admin/roles'
@@ -173,6 +185,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   CheckoutRoute: typeof CheckoutRoute
   SearchRoute: typeof SearchRoute
+  AdminLoginRoute: typeof AdminLoginRoute
   ProductIdRoute: typeof ProductIdRoute
   SellerSlugRoute: typeof SellerSlugRoute
 }
@@ -226,6 +239,13 @@ declare module '@tanstack/react-router' {
       path: '/product/$id'
       fullPath: '/product/$id'
       preLoaderRoute: typeof ProductIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/login': {
+      id: '/admin/login'
+      path: '/admin/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AdminLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/wallet': {
@@ -300,6 +320,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   CheckoutRoute: CheckoutRoute,
   SearchRoute: SearchRoute,
+  AdminLoginRoute: AdminLoginRoute,
   ProductIdRoute: ProductIdRoute,
   SellerSlugRoute: SellerSlugRoute,
 }
