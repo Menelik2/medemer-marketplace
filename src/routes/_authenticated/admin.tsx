@@ -5,12 +5,14 @@ import { useState } from "react";
 import {
   ArrowLeft, LayoutDashboard, Package, Users, Store, Wallet, Star, ShieldCheck,
   Loader2, Check, X, Trash2, TrendingUp, AlertTriangle, Crown, Lock,
+  BarChart3, Pencil, Search as SearchIcon,
 } from "lucide-react";
 import {
   amIAdmin, claimAdminIfNone, getAdminStats,
   adminListOrders, adminUpdateOrderStatus,
   adminListSellers, adminSetSellerVerified,
-  adminListProducts, adminDeleteProduct,
+  adminListProducts, adminDeleteProduct, adminUpdateProduct,
+  adminListUsers, getAdminAnalytics,
   adminListWithdrawals, adminDecideWithdrawal,
   adminListReviews, adminSetReviewApproved,
 } from "@/lib/admin.functions";
@@ -20,7 +22,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminDashboard,
 });
 
-type Tab = "overview" | "orders" | "sellers" | "products" | "withdrawals" | "reviews";
+type Tab = "overview" | "orders" | "sellers" | "products" | "customers" | "analytics" | "withdrawals" | "reviews";
 
 function AdminDashboard() {
   const check = useServerFn(amIAdmin);
@@ -86,6 +88,8 @@ function AdminDashboard() {
               ["orders", "Orders", Package],
               ["sellers", "Sellers", Store],
               ["products", "Products", Package],
+              ["customers", "Customers", Users],
+              ["analytics", "Analytics", BarChart3],
               ["withdrawals", "Withdrawals", Wallet],
               ["reviews", "Reviews", Star],
             ] as [Tab, string, any][]
@@ -108,6 +112,8 @@ function AdminDashboard() {
         {tab === "orders" && <OrdersPanel />}
         {tab === "sellers" && <SellersPanel />}
         {tab === "products" && <ProductsPanel />}
+        {tab === "customers" && <CustomersPanel />}
+        {tab === "analytics" && <AnalyticsPanel />}
         {tab === "withdrawals" && <WithdrawalsPanel />}
         {tab === "reviews" && <ReviewsPanel />}
       </main>
@@ -293,6 +299,7 @@ function SellersPanel() {
 function ProductsPanel() {
   const fetchProducts = useServerFn(adminListProducts);
   const del = useServerFn(adminDeleteProduct);
+  const update = useServerFn(adminUpdateProduct);
   const qc = useQueryClient();
   const { data = [], isLoading } = useQuery({ queryKey: ["admin-products"], queryFn: () => fetchProducts() });
   const mut = useMutation({
@@ -302,30 +309,248 @@ function ProductsPanel() {
       qc.invalidateQueries({ queryKey: ["admin-stats"] });
     },
   });
+  const editMut = useMutation({
+    mutationFn: (v: { productId: string; price?: number; stock?: number; name?: string }) => update({ data: v }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-products"] });
+      qc.invalidateQueries({ queryKey: ["admin-stats"] });
+    },
+    onError: (e) => alert((e as Error).message),
+  });
+  const [editingId, setEditingId] = useState<string | null>(null);
   return (
     <div className="space-y-2">
       {isLoading && <PanelLoader />}
       {data.map((p: any) => (
-        <div key={p.id} className="bg-card border border-border rounded-xl p-3 flex items-center gap-3">
-          <img src={p.img} alt="" className="size-12 rounded-lg object-cover" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate">{p.name}</p>
-            <p className="text-[11px] text-muted-foreground">{p.sellers?.name} · {p.category}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm font-semibold">{ETB(Number(p.price))}</p>
-            <p className={`text-[10px] ${p.stock < 5 ? "text-heritage-red" : "text-muted-foreground"}`}>Stock: {p.stock}</p>
-          </div>
-          <button
-            onClick={() => { if (confirm(`Delete "${p.name}"?`)) mut.mutate(p.id); }}
-            className="size-8 grid place-items-center rounded-full hover:bg-heritage-red/10 text-heritage-red"
-            title="Delete"
-          >
-            <Trash2 className="size-4" />
-          </button>
-        </div>
+        <ProductRow
+          key={p.id}
+          p={p}
+          editing={editingId === p.id}
+          onEdit={() => setEditingId(p.id)}
+          onCancel={() => setEditingId(null)}
+          onSave={(v) => {
+            editMut.mutate({ productId: p.id, ...v });
+            setEditingId(null);
+          }}
+          onDelete={() => { if (confirm(`Delete "${p.name}"?`)) mut.mutate(p.id); }}
+        />
       ))}
       {!isLoading && !data.length && <EmptyState icon={Package} text="No products yet." />}
+    </div>
+  );
+}
+
+function ProductRow({
+  p, editing, onEdit, onCancel, onSave, onDelete,
+}: {
+  p: any;
+  editing: boolean;
+  onEdit: () => void;
+  onCancel: () => void;
+  onSave: (v: { name?: string; price?: number; stock?: number }) => void;
+  onDelete: () => void;
+}) {
+  const [name, setName] = useState(p.name);
+  const [price, setPrice] = useState(String(p.price));
+  const [stock, setStock] = useState(String(p.stock));
+
+  if (!editing) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-3 flex items-center gap-3">
+        <img src={p.img} alt="" className="size-12 rounded-lg object-cover" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold truncate">{p.name}</p>
+          <p className="text-[11px] text-muted-foreground">{p.sellers?.name} · {p.category}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-sm font-semibold">{ETB(Number(p.price))}</p>
+          <p className={`text-[10px] ${p.stock < 5 ? "text-heritage-red" : "text-muted-foreground"}`}>Stock: {p.stock}</p>
+        </div>
+        <button onClick={onEdit} className="size-8 grid place-items-center rounded-full hover:bg-muted text-heritage-gold" title="Edit">
+          <Pencil className="size-4" />
+        </button>
+        <button onClick={onDelete} className="size-8 grid place-items-center rounded-full hover:bg-heritage-red/10 text-heritage-red" title="Delete">
+          <Trash2 className="size-4" />
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="bg-card border-2 border-heritage-gold/50 rounded-xl p-3 space-y-2">
+      <div className="flex items-center gap-3">
+        <img src={p.img} alt="" className="size-12 rounded-lg object-cover" />
+        <input
+          value={name} onChange={(e) => setName(e.target.value)}
+          className="flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Price (ETB)</span>
+          <input
+            type="number" min="0" step="0.01"
+            value={price} onChange={(e) => setPrice(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
+          />
+        </label>
+        <label className="block">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Stock</span>
+          <input
+            type="number" min="0" step="1"
+            value={stock} onChange={(e) => setStock(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
+          />
+        </label>
+      </div>
+      <div className="flex gap-2 justify-end">
+        <button onClick={onCancel} className="text-xs px-3 py-1.5 rounded-full border border-border">Cancel</button>
+        <button
+          onClick={() => onSave({ name, price: Number(price), stock: Number(stock) })}
+          className="text-xs font-bold px-3 py-1.5 rounded-full bg-heritage-gold text-ethio-charcoal"
+        >
+          Save
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Customers ---------------- */
+
+function CustomersPanel() {
+  const [query, setQuery] = useState("");
+  const listUsers = useServerFn(adminListUsers);
+  const { data = [], isLoading } = useQuery({
+    queryKey: ["admin-users", query],
+    queryFn: () => listUsers({ data: { query: query || undefined } }),
+  });
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 bg-card border border-border rounded-full px-3 py-2">
+        <SearchIcon className="size-4 text-muted-foreground" />
+        <input
+          value={query} onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by display name…"
+          className="flex-1 bg-transparent outline-none text-sm"
+        />
+      </div>
+      {isLoading && <PanelLoader />}
+      {data.map((u: any) => (
+        <div key={u.id} className="bg-card border border-border rounded-2xl p-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold truncate">{u.displayName ?? u.id.slice(0, 8)}</p>
+              {u.isAdmin && (
+                <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-heritage-gold text-ethio-charcoal">Admin</span>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Joined {new Date(u.createdAt).toLocaleDateString()} · {u.roles.join(", ")}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-semibold">{ETB(Number(u.totalSpent))}</p>
+            <p className="text-[11px] text-muted-foreground">{u.ordersCount} orders</p>
+          </div>
+        </div>
+      ))}
+      {!isLoading && !data.length && <EmptyState icon={Users} text="No customers match this search." />}
+    </div>
+  );
+}
+
+/* ---------------- Analytics ---------------- */
+
+function AnalyticsPanel() {
+  const fetchAnalytics = useServerFn(getAdminAnalytics);
+  const { data, isLoading } = useQuery({ queryKey: ["admin-analytics"], queryFn: () => fetchAnalytics() });
+  if (isLoading || !data) return <PanelLoader />;
+  const t = data.totals;
+  const catMax = Math.max(...data.categoryRevenue.map((c: any) => c.revenue), 1);
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard label="Total GMV" value={ETB(t.totalGMV)} icon={TrendingUp} accent="gold" />
+        <StatCard label="Avg order" value={ETB(t.avgOrderValue)} icon={Wallet} />
+        <StatCard label="Conversion" value={`${(t.conversion * 100).toFixed(1)}%`} sub={`${t.paidOrders}/${t.allOrders}`} icon={BarChart3} />
+        <StatCard label="Paid orders" value={String(t.paidOrders)} icon={Check} />
+      </div>
+
+      <section className="bg-card border border-border rounded-2xl p-4">
+        <h2 className="font-display text-base mb-3">Revenue by category</h2>
+        <div className="space-y-2">
+          {data.categoryRevenue.map((c: any) => (
+            <div key={c.category}>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="capitalize">{c.category}</span>
+                <span className="font-semibold">{ETB(Number(c.revenue))}</span>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div className="h-full bg-heritage-gold" style={{ width: `${(Number(c.revenue) / catMax) * 100}%` }} />
+              </div>
+            </div>
+          ))}
+          {!data.categoryRevenue.length && <p className="text-sm text-muted-foreground">No revenue yet.</p>}
+        </div>
+      </section>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <section className="bg-card border border-border rounded-2xl p-4">
+          <h2 className="font-display text-base mb-3">Top sellers</h2>
+          <div className="space-y-2">
+            {data.topSellers.map((s: any, i: number) => (
+              <div key={s.id} className="flex items-center justify-between text-sm">
+                <span className="truncate">
+                  <span className="text-muted-foreground text-[11px] mr-2">#{i + 1}</span>
+                  {s.name} {s.verified && <ShieldCheck className="size-3 inline text-heritage-gold" />}
+                </span>
+                <span className="font-semibold">{ETB(Number(s.gmv))}</span>
+              </div>
+            ))}
+            {!data.topSellers.length && <p className="text-sm text-muted-foreground">No sales yet.</p>}
+          </div>
+        </section>
+
+        <section className="bg-card border border-border rounded-2xl p-4">
+          <h2 className="font-display text-base mb-3">Best-selling products</h2>
+          <div className="space-y-2">
+            {data.topProducts.map((p: any, i: number) => (
+              <div key={p.id} className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground text-[11px] w-5">#{i + 1}</span>
+                {p.img && <img src={p.img} alt="" className="size-7 rounded object-cover" />}
+                <span className="flex-1 truncate">{p.name}</span>
+                <span className="font-semibold">{p.qty} sold</span>
+              </div>
+            ))}
+            {!data.topProducts.length && <p className="text-sm text-muted-foreground">No sales yet.</p>}
+          </div>
+        </section>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <section className="bg-card border border-border rounded-2xl p-4">
+          <h2 className="font-display text-base mb-3">Payment mix</h2>
+          <div className="space-y-1.5">
+            {data.paymentMix.map((m: any) => (
+              <div key={m.method} className="flex justify-between text-sm">
+                <span className="capitalize">{m.method.replace(/_/g, " ")}</span>
+                <span className="font-semibold">{m.count}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+        <section className="bg-card border border-border rounded-2xl p-4">
+          <h2 className="font-display text-base mb-3">Order status</h2>
+          <div className="space-y-1.5">
+            {data.statusFunnel.map((s: any) => (
+              <div key={s.status} className="flex justify-between text-sm">
+                <span className="capitalize">{s.status}</span>
+                <span className="font-semibold">{s.count}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
