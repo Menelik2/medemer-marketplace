@@ -252,7 +252,7 @@ export const getAdminAuditLog = createServerFn({ method: "GET" })
 
     // Attempt to fetch audit log; table may not exist
     try {
-      const { data: logs, error } = await sb
+      const { data: logs, error } = await (sb as any)
         .from("admin_audit_log")
         .select(
           `
