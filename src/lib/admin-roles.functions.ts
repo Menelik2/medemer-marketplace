@@ -15,12 +15,19 @@ async function assertAdmin(ctx: { supabase: any; userId: string }) {
 async function getUserProfile(sb: any, userId: string) {
   const { data, error } = await sb
     .from("profiles")
-    .select("id, email, full_name, avatar_url")
+    .select("id, display_name, phone, language")
     .eq("id", userId)
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw new Error("User profile not found");
-  return data;
+  return {
+    id: data.id,
+    email: data.display_name ?? "",
+    full_name: data.display_name ?? "",
+    avatar_url: null,
+    phone: data.phone ?? null,
+    language: data.language ?? null,
+  };
 }
 
 /** Get the list of all admins with their details */
@@ -210,8 +217,8 @@ export const searchUsersForAdminGrant = createServerFn({ method: "GET" })
     // Search by email or full name
     const { data: profiles, error } = await sb
       .from("profiles")
-      .select("id, email, full_name, avatar_url")
-      .or(`email.ilike.%${query}%,full_name.ilike.%${query}%`)
+      .select("id, display_name, phone")
+      .or(`display_name.ilike.%${query}%,phone.ilike.%${query}%`)
       .limit(10);
 
     if (error) throw new Error(error.message);
@@ -226,9 +233,9 @@ export const searchUsersForAdminGrant = createServerFn({ method: "GET" })
 
         return {
           id: profile.id,
-          email: profile.email,
-          fullName: profile.full_name,
-          avatarUrl: profile.avatar_url,
+          email: profile.display_name ?? "",
+          fullName: profile.display_name ?? "",
+          avatarUrl: null,
           roles: (roles ?? []).map((r: any) => r.role),
           isAdmin: (roles ?? []).some((r: any) => r.role === "admin"),
         };
@@ -236,6 +243,53 @@ export const searchUsersForAdminGrant = createServerFn({ method: "GET" })
     );
 
     return results;
+  });
+
+/** Update an admin user's profile (display_name, phone, language) */
+export const updateAdminProfile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      userId: z.string().uuid(),
+      displayName: z.string().trim().min(1).max(100).optional(),
+      phone: z.string().trim().max(30).nullable().optional(),
+      language: z.string().trim().max(10).nullable().optional(),
+    }).parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const sb = context.supabase;
+
+    // Confirm target is an admin (this fn edits admins only)
+    const { data: role } = await sb
+      .from("user_roles")
+      .select("id")
+      .eq("user_id", data.userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!role) throw new Error("Target user is not an admin");
+
+    const patch: Record<string, any> = {};
+    if (data.displayName !== undefined) patch.display_name = data.displayName;
+    if (data.phone !== undefined) patch.phone = data.phone;
+    if (data.language !== undefined) patch.language = data.language;
+    if (!Object.keys(patch).length) return { ok: true };
+
+    const { error } = await (sb as any).from("profiles").update(patch).eq("id", data.userId);
+    if (error) throw new Error(error.message);
+
+    try {
+      await (sb as any).from("admin_audit_log").insert({
+        admin_id: context.userId,
+        action: "update_admin",
+        target_user_id: data.userId,
+        details: patch,
+        created_at: new Date().toISOString(),
+      });
+    } catch {
+      console.warn("Could not log audit trail");
+    }
+    return { ok: true };
   });
 
 /** Get audit log of admin role changes */
