@@ -11,6 +11,7 @@ import {
   amIAdmin, claimAdminIfNone, getAdminStats,
   adminListOrders, adminUpdateOrderStatus,
   adminListSellers, adminSetSellerVerified,
+  adminBulkUpdateOrderStatus, adminBulkSetSellerVerified,
   adminListProducts, adminDeleteProduct, adminUpdateProduct,
   adminListUsers, getAdminAnalytics,
   adminListWithdrawals, adminDecideWithdrawal,
