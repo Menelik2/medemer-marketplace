@@ -275,7 +275,7 @@ export const updateAdminProfile = createServerFn({ method: "POST" })
     if (data.language !== undefined) patch.language = data.language;
     if (!Object.keys(patch).length) return { ok: true };
 
-    const { error } = await sb.from("profiles").update(patch).eq("id", data.userId);
+    const { error } = await (sb as any).from("profiles").update(patch).eq("id", data.userId);
     if (error) throw new Error(error.message);
 
     try {
