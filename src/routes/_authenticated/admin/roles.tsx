@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   ArrowLeft, Crown, Shield, Plus, X, Trash2, Search as SearchIcon,
-  Loader2, Check, AlertCircle, History, User, Mail, Calendar,
+  Loader2, Check, AlertCircle, History, User, Mail, Calendar, Pencil,
 } from "lucide-react";
 import {
   listAllAdmins,
@@ -12,6 +12,7 @@ import {
   revokeAdminRole,
   searchUsersForAdminGrant,
   getAdminAuditLog,
+  updateAdminProfile,
 } from "@/lib/admin-roles.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/roles")({
@@ -68,6 +69,7 @@ function AdminRolesPage() {
 function AdminListPanel() {
   const fetch = useServerFn(listAllAdmins);
   const revokeRole = useServerFn(revokeAdminRole);
+  const updateFn = useServerFn(updateAdminProfile);
   const qc = useQueryClient();
 
   const { data = [], isLoading } = useQuery({
@@ -83,6 +85,18 @@ function AdminListPanel() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-list"] });
       qc.invalidateQueries({ queryKey: ["admin-audit-log"] });
+    },
+    onError: (e) => alert((e as Error).message),
+  });
+
+  const [editing, setEditing] = useState<any | null>(null);
+  const updateMut = useMutation({
+    mutationFn: (v: { userId: string; displayName: string; phone: string }) =>
+      updateFn({ data: { userId: v.userId, displayName: v.displayName, phone: v.phone || null } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-list"] });
+      qc.invalidateQueries({ queryKey: ["admin-audit-log"] });
+      setEditing(null);
     },
     onError: (e) => alert((e as Error).message),
   });
@@ -160,8 +174,52 @@ function AdminListPanel() {
               >
                 <Trash2 className="size-4" />
               </button>
+              <button
+                onClick={() => setEditing({ id: admin.id, displayName: admin.fullName ?? "", phone: "" })}
+                className="size-9 grid place-items-center rounded-full hover:bg-muted text-heritage-gold"
+                title="Edit admin"
+                aria-label="Edit admin"
+              >
+                <Pencil className="size-4" />
+              </button>
             </div>
           ))}
+        </div>
+      )}
+      {editing && (
+        <div className="fixed inset-0 z-50 bg-black/50 grid place-items-center p-4" onClick={() => setEditing(null)}>
+          <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-display text-base">Edit admin</h3>
+              <button onClick={() => setEditing(null)} className="size-8 grid place-items-center rounded-full hover:bg-muted"><X className="size-4" /></button>
+            </div>
+            <label className="block">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Display name</span>
+              <input
+                value={editing.displayName}
+                onChange={(e) => setEditing({ ...editing, displayName: e.target.value })}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Phone</span>
+              <input
+                value={editing.phone}
+                onChange={(e) => setEditing({ ...editing, phone: e.target.value })}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              />
+            </label>
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => setEditing(null)} className="flex-1 py-2 rounded-full border border-border text-xs font-bold">Cancel</button>
+              <button
+                disabled={updateMut.isPending || !editing.displayName.trim()}
+                onClick={() => updateMut.mutate({ userId: editing.id, displayName: editing.displayName.trim(), phone: editing.phone.trim() })}
+                className="flex-1 py-2 rounded-full bg-heritage-gold text-ethio-charcoal text-xs font-bold disabled:opacity-60"
+              >
+                {updateMut.isPending ? "Saving…" : "Save changes"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
