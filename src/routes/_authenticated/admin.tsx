@@ -11,6 +11,7 @@ import {
   amIAdmin, claimAdminIfNone, getAdminStats,
   adminListOrders, adminUpdateOrderStatus,
   adminListSellers, adminSetSellerVerified,
+  adminBulkUpdateOrderStatus, adminBulkSetSellerVerified,
   adminListProducts, adminDeleteProduct, adminUpdateProduct,
   adminListUsers, getAdminAnalytics,
   adminListWithdrawals, adminDecideWithdrawal,
@@ -203,6 +204,7 @@ function OrdersPanel() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const fetchOrders = useServerFn(adminListOrders);
   const updateStatus = useServerFn(adminUpdateOrderStatus);
+  const bulkUpdate = useServerFn(adminBulkUpdateOrderStatus);
   const qc = useQueryClient();
   const { data = [], isLoading } = useQuery({
     queryKey: ["admin-orders", statusFilter],
@@ -215,6 +217,23 @@ function OrdersPanel() {
       qc.invalidateQueries({ queryKey: ["admin-stats"] });
     },
   });
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<(typeof ORDER_STATUSES)[number]>("paid");
+  const bulkMut = useMutation({
+    mutationFn: (v: { orderIds: string[]; status: (typeof ORDER_STATUSES)[number] }) => bulkUpdate({ data: v }),
+    onSuccess: (r) => {
+      setSelected(new Set());
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      qc.invalidateQueries({ queryKey: ["admin-stats"] });
+      alert(`Updated ${r.count} order(s).`);
+    },
+    onError: (e) => alert((e as Error).message),
+  });
+  const toggle = (id: string) => setSelected((s) => {
+    const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
+  });
+  const allIds = data.map((o: any) => o.id);
+  const allSelected = allIds.length > 0 && allIds.every((id: string) => selected.has(id));
 
   return (
     <div className="space-y-3">
@@ -224,11 +243,48 @@ function OrdersPanel() {
           <button key={s} onClick={() => setStatusFilter(s)} className={`text-xs px-3 py-1 rounded-full capitalize ${statusFilter === s ? "bg-ethio-charcoal text-soft-clay" : "bg-card border border-border"}`}>{s}</button>
         ))}
       </div>
+      {data.length > 0 && (
+        <div className="bg-card border border-border rounded-xl p-2.5 flex items-center gap-2 flex-wrap sticky top-[104px] z-30">
+          <label className="flex items-center gap-2 text-xs font-semibold">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={(e) => setSelected(e.target.checked ? new Set(allIds) : new Set())}
+            />
+            {selected.size ? `${selected.size} selected` : "Select all"}
+          </label>
+          <div className="flex-1" />
+          <select
+            value={bulkStatus}
+            onChange={(e) => setBulkStatus(e.target.value as any)}
+            disabled={!selected.size}
+            className="text-xs border border-border rounded-full px-3 py-1 bg-background capitalize disabled:opacity-50"
+          >
+            {ORDER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <button
+            disabled={!selected.size || bulkMut.isPending}
+            onClick={() => {
+              if (!confirm(`Set ${selected.size} order(s) to "${bulkStatus}"?`)) return;
+              bulkMut.mutate({ orderIds: [...selected], status: bulkStatus });
+            }}
+            className="text-xs font-bold px-3 py-1.5 rounded-full bg-heritage-gold text-ethio-charcoal disabled:opacity-50"
+          >
+            {bulkMut.isPending ? "Updating…" : "Apply"}
+          </button>
+        </div>
+      )}
       {isLoading && <PanelLoader />}
       {data.map((o: any) => (
-        <div key={o.id} className="bg-card border border-border rounded-2xl p-4">
+        <div key={o.id} className={`bg-card border rounded-2xl p-4 ${selected.has(o.id) ? "border-heritage-gold" : "border-border"}`}>
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
+            <input
+              type="checkbox"
+              checked={selected.has(o.id)}
+              onChange={() => toggle(o.id)}
+              className="mt-1"
+            />
+            <div className="min-w-0 flex-1">
               <p className="font-mono text-[11px] text-muted-foreground">#{o.id.slice(0, 8)}</p>
               <p className="font-semibold text-sm">{ETB(Number(o.total))} · {o.payment_method}</p>
               <p className="text-[11px] text-muted-foreground">{new Date(o.created_at).toLocaleString()}</p>
@@ -259,6 +315,7 @@ function OrdersPanel() {
 function SellersPanel() {
   const fetchSellers = useServerFn(adminListSellers);
   const setVerified = useServerFn(adminSetSellerVerified);
+  const bulkVerify = useServerFn(adminBulkSetSellerVerified);
   const qc = useQueryClient();
   const { data = [], isLoading } = useQuery({ queryKey: ["admin-sellers"], queryFn: () => fetchSellers() });
   const mut = useMutation({
@@ -268,11 +325,65 @@ function SellersPanel() {
       qc.invalidateQueries({ queryKey: ["admin-stats"] });
     },
   });
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const bulkMut = useMutation({
+    mutationFn: (v: { sellerIds: string[]; verified: boolean }) => bulkVerify({ data: v }),
+    onSuccess: (r) => {
+      setSelected(new Set());
+      qc.invalidateQueries({ queryKey: ["admin-sellers"] });
+      qc.invalidateQueries({ queryKey: ["admin-stats"] });
+      alert(`Updated ${r.count} seller(s).`);
+    },
+    onError: (e) => alert((e as Error).message),
+  });
+  const toggle = (id: string) => setSelected((s) => {
+    const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
+  });
+  const allIds = data.map((s: any) => s.id);
+  const allSelected = allIds.length > 0 && allIds.every((id: string) => selected.has(id));
   return (
     <div className="space-y-3">
+      {data.length > 0 && (
+        <div className="bg-card border border-border rounded-xl p-2.5 flex items-center gap-2 flex-wrap sticky top-[104px] z-30">
+          <label className="flex items-center gap-2 text-xs font-semibold">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={(e) => setSelected(e.target.checked ? new Set(allIds) : new Set())}
+            />
+            {selected.size ? `${selected.size} selected` : "Select all"}
+          </label>
+          <div className="flex-1" />
+          <button
+            disabled={!selected.size || bulkMut.isPending}
+            onClick={() => {
+              if (!confirm(`Approve ${selected.size} seller(s)?`)) return;
+              bulkMut.mutate({ sellerIds: [...selected], verified: true });
+            }}
+            className="text-xs font-bold px-3 py-1.5 rounded-full bg-heritage-gold text-ethio-charcoal disabled:opacity-50"
+          >
+            Approve
+          </button>
+          <button
+            disabled={!selected.size || bulkMut.isPending}
+            onClick={() => {
+              if (!confirm(`Revoke verification for ${selected.size} seller(s)?`)) return;
+              bulkMut.mutate({ sellerIds: [...selected], verified: false });
+            }}
+            className="text-xs font-bold px-3 py-1.5 rounded-full bg-muted text-foreground disabled:opacity-50"
+          >
+            Reject
+          </button>
+        </div>
+      )}
       {isLoading && <PanelLoader />}
       {data.map((s: any) => (
-        <div key={s.id} className="bg-card border border-border rounded-2xl p-4 flex items-center gap-3">
+        <div key={s.id} className={`bg-card border rounded-2xl p-4 flex items-center gap-3 ${selected.has(s.id) ? "border-heritage-gold" : "border-border"}`}>
+          <input
+            type="checkbox"
+            checked={selected.has(s.id)}
+            onChange={() => toggle(s.id)}
+          />
           {s.avatar ? <img src={s.avatar} alt="" className="size-11 rounded-full object-cover" /> : <div className="size-11 rounded-full bg-muted grid place-items-center"><Store className="size-4" /></div>}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
