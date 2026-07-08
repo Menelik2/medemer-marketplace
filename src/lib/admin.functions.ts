@@ -118,6 +118,22 @@ export const adminUpdateOrderStatus = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const adminBulkUpdateOrderStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    orderIds: z.array(z.string().uuid()).min(1).max(200),
+    status: z.enum(["pending", "paid", "shipped", "delivered", "cancelled"]),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { error } = await context.supabase
+      .from("orders")
+      .update({ status: data.status })
+      .in("id", data.orderIds);
+    if (error) throw new Error(error.message);
+    return { ok: true, count: data.orderIds.length };
+  });
+
 /* -------- Sellers management -------- */
 
 export const adminListSellers = createServerFn({ method: "GET" })
@@ -136,6 +152,22 @@ export const adminSetSellerVerified = createServerFn({ method: "POST" })
     const { error } = await context.supabase.from("sellers").update({ verified: data.verified }).eq("id", data.sellerId);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+export const adminBulkSetSellerVerified = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    sellerIds: z.array(z.string().uuid()).min(1).max(200),
+    verified: z.boolean(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { error } = await context.supabase
+      .from("sellers")
+      .update({ verified: data.verified })
+      .in("id", data.sellerIds);
+    if (error) throw new Error(error.message);
+    return { ok: true, count: data.sellerIds.length };
   });
 
 /* -------- Products moderation -------- */
