@@ -177,7 +177,7 @@ export const adminListProducts = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertAdmin(context);
     const { data } = await context.supabase
-      .from("products").select("id,name,price,stock,category,img,seller_id,sellers(name,verified)")
+      .from("products").select("id,name,price,stock,category,img,description,seller_id,sellers(name,verified)")
       .order("created_at", { ascending: false }).limit(200);
     return data ?? [];
   });
@@ -249,10 +249,12 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({
-      productId: z.string().uuid(),
+      productId: z.string().min(1),
       price: z.number().nonnegative().optional(),
       stock: z.number().int().min(0).optional(),
       name: z.string().min(1).max(200).optional(),
+      description: z.string().max(2000).optional(),
+      img: z.string().url().max(2048).optional(),
     }).parse(d)
   )
   .handler(async ({ data, context }) => {
@@ -261,6 +263,8 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
     if (data.price !== undefined) patch.price = data.price;
     if (data.stock !== undefined) patch.stock = data.stock;
     if (data.name !== undefined) patch.name = data.name;
+    if (data.description !== undefined) patch.description = data.description;
+    if (data.img !== undefined) patch.img = data.img;
     if (!Object.keys(patch).length) return { ok: true };
     const { error } = await (context.supabase as any).from("products").update(patch).eq("id", data.productId);
     if (error) throw new Error(error.message);

@@ -424,10 +424,12 @@ function ProductsPanel() {
     },
   });
   const editMut = useMutation({
-    mutationFn: (v: { productId: string; price?: number; stock?: number; name?: string }) => update({ data: v }),
+    mutationFn: (v: { productId: string; price?: number; stock?: number; name?: string; description?: string; img?: string }) =>
+      update({ data: v }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-products"] });
       qc.invalidateQueries({ queryKey: ["admin-stats"] });
+      setEditingProduct(null);
     },
     onError: (e) => alert((e as Error).message),
   });
@@ -443,7 +445,7 @@ function ProductsPanel() {
     },
     onError: (e) => alert((e as Error).message),
   });
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   return (
     <div className="space-y-2">
@@ -468,17 +470,19 @@ function ProductsPanel() {
         <ProductRow
           key={p.id}
           p={p}
-          editing={editingId === p.id}
-          onEdit={() => setEditingId(p.id)}
-          onCancel={() => setEditingId(null)}
-          onSave={(v) => {
-            editMut.mutate({ productId: p.id, ...v });
-            setEditingId(null);
-          }}
+          onEdit={() => setEditingProduct(p)}
           onDelete={() => { if (confirm(`Delete "${p.name}"?`)) mut.mutate(p.id); }}
         />
       ))}
       {!isLoading && !data.length && <EmptyState icon={Package} text="No products yet." />}
+      {editingProduct && (
+        <EditProductModal
+          product={editingProduct}
+          submitting={editMut.isPending}
+          onCancel={() => setEditingProduct(null)}
+          onSave={(v) => editMut.mutate({ productId: editingProduct.id, ...v })}
+        />
+      )}
     </div>
   );
 }
@@ -592,75 +596,114 @@ function CreateProductForm({
 }
 
 function ProductRow({
-  p, editing, onEdit, onCancel, onSave, onDelete,
+  p, onEdit, onDelete,
 }: {
   p: any;
-  editing: boolean;
   onEdit: () => void;
-  onCancel: () => void;
-  onSave: (v: { name?: string; price?: number; stock?: number }) => void;
   onDelete: () => void;
 }) {
-  const [name, setName] = useState(p.name);
-  const [price, setPrice] = useState(String(p.price));
-  const [stock, setStock] = useState(String(p.stock));
-
-  if (!editing) {
-    return (
-      <div className="bg-card border border-border rounded-xl p-3 flex items-center gap-3">
-        <img src={p.img} alt="" className="size-12 rounded-lg object-cover" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold truncate">{p.name}</p>
-          <p className="text-[11px] text-muted-foreground">{p.sellers?.name} · {p.category}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-sm font-semibold">{ETB(Number(p.price))}</p>
-          <p className={`text-[10px] ${p.stock < 5 ? "text-heritage-red" : "text-muted-foreground"}`}>Stock: {p.stock}</p>
-        </div>
-        <button onClick={onEdit} className="size-8 grid place-items-center rounded-full hover:bg-muted text-heritage-gold" title="Edit">
-          <Pencil className="size-4" />
-        </button>
-        <button onClick={onDelete} className="size-8 grid place-items-center rounded-full hover:bg-heritage-red/10 text-heritage-red" title="Delete">
-          <Trash2 className="size-4" />
-        </button>
-      </div>
-    );
-  }
   return (
-    <div className="bg-card border-2 border-heritage-gold/50 rounded-xl p-3 space-y-2">
-      <div className="flex items-center gap-3">
-        <img src={p.img} alt="" className="size-12 rounded-lg object-cover" />
-        <input
-          value={name} onChange={(e) => setName(e.target.value)}
-          className="flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
-        />
+    <div className="bg-card border border-border rounded-xl p-3 flex items-center gap-3">
+      <img src={p.img} alt="" className="size-12 rounded-lg object-cover" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold truncate">{p.name}</p>
+        <p className="text-[11px] text-muted-foreground">{p.sellers?.name} · {p.category}</p>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <label className="block">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Price (ETB)</span>
-          <input
-            type="number" min="0" step="0.01"
-            value={price} onChange={(e) => setPrice(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
-          />
-        </label>
-        <label className="block">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Stock</span>
-          <input
-            type="number" min="0" step="1"
-            value={stock} onChange={(e) => setStock(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
-          />
-        </label>
+      <div className="text-right">
+        <p className="text-sm font-semibold">{ETB(Number(p.price))}</p>
+        <p className={`text-[10px] ${p.stock < 5 ? "text-heritage-red" : "text-muted-foreground"}`}>Stock: {p.stock}</p>
       </div>
-      <div className="flex gap-2 justify-end">
-        <button onClick={onCancel} className="text-xs px-3 py-1.5 rounded-full border border-border">Cancel</button>
-        <button
-          onClick={() => onSave({ name, price: Number(price), stock: Number(stock) })}
-          className="text-xs font-bold px-3 py-1.5 rounded-full bg-heritage-gold text-ethio-charcoal"
-        >
-          Save
-        </button>
+      <button onClick={onEdit} className="size-8 grid place-items-center rounded-full hover:bg-muted text-heritage-gold" title="Edit">
+        <Pencil className="size-4" />
+      </button>
+      <button onClick={onDelete} className="size-8 grid place-items-center rounded-full hover:bg-heritage-red/10 text-heritage-red" title="Delete">
+        <Trash2 className="size-4" />
+      </button>
+    </div>
+  );
+}
+
+function EditProductModal({
+  product, submitting, onCancel, onSave,
+}: {
+  product: any;
+  submitting: boolean;
+  onCancel: () => void;
+  onSave: (v: { name?: string; price?: number; stock?: number; description?: string; img?: string }) => void;
+}) {
+  const [name, setName] = useState(String(product.name ?? ""));
+  const [price, setPrice] = useState(String(product.price ?? "0"));
+  const [stock, setStock] = useState(String(product.stock ?? "0"));
+  const [description, setDescription] = useState(String(product.description ?? ""));
+  const [img, setImg] = useState(String(product.img ?? ""));
+
+  const submit = () => {
+    if (!name.trim()) return alert("Name is required");
+    const patch: { name?: string; price?: number; stock?: number; description?: string; img?: string } = {};
+    if (name.trim() !== product.name) patch.name = name.trim();
+    const pn = Number(price);
+    if (!Number.isNaN(pn) && pn !== Number(product.price)) patch.price = pn;
+    const sn = Math.max(0, Math.floor(Number(stock)));
+    if (!Number.isNaN(sn) && sn !== Number(product.stock)) patch.stock = sn;
+    if (description !== (product.description ?? "")) patch.description = description;
+    if (img.trim() !== (product.img ?? "")) patch.img = img.trim();
+    onSave(patch);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm grid place-items-center p-4" onClick={onCancel}>
+      <div
+        className="bg-card border border-border rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-border sticky top-0 bg-card">
+          <p className="text-base font-semibold">Edit product</p>
+          <button onClick={onCancel} className="size-8 grid place-items-center rounded-full hover:bg-muted"><X className="size-4" /></button>
+        </div>
+        <div className="p-4 space-y-3">
+          {img && (
+            <div className="rounded-xl overflow-hidden border border-border bg-muted">
+              <img src={img} alt="" className="w-full h-40 object-cover" onError={(e) => ((e.currentTarget.style.display = "none"))} />
+            </div>
+          )}
+          <label className="block">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Image URL</span>
+            <input value={img} onChange={(e) => setImg(e.target.value)} placeholder="https://…"
+              className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm" />
+          </label>
+          <label className="block">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Name</span>
+            <input value={name} onChange={(e) => setName(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm" />
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Price (ETB)</span>
+              <input type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm" />
+            </label>
+            <label className="block">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Stock</span>
+              <input type="number" min="0" step="1" value={stock} onChange={(e) => setStock(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm" />
+            </label>
+          </div>
+          <label className="block">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Description</span>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4}
+              className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm" />
+          </label>
+        </div>
+        <div className="flex gap-2 justify-end p-4 border-t border-border sticky bottom-0 bg-card">
+          <button onClick={onCancel} className="text-xs px-4 py-2 rounded-full border border-border">Cancel</button>
+          <button
+            onClick={submit}
+            disabled={submitting}
+            className="text-xs font-bold px-4 py-2 rounded-full bg-heritage-gold text-ethio-charcoal disabled:opacity-60"
+          >
+            {submitting ? "Saving…" : "Save changes"}
+          </button>
+        </div>
       </div>
     </div>
   );
