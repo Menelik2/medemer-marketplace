@@ -409,10 +409,13 @@ function SellersPanel() {
 
 function ProductsPanel() {
   const fetchProducts = useServerFn(adminListProducts);
+  const fetchSellers = useServerFn(adminListSellers);
   const del = useServerFn(adminDeleteProduct);
   const update = useServerFn(adminUpdateProduct);
+  const create = useServerFn(adminCreateProduct);
   const qc = useQueryClient();
   const { data = [], isLoading } = useQuery({ queryKey: ["admin-products"], queryFn: () => fetchProducts() });
+  const { data: sellers = [] } = useQuery({ queryKey: ["admin-sellers"], queryFn: () => fetchSellers() });
   const mut = useMutation({
     mutationFn: (id: string) => del({ data: { productId: id } }),
     onSuccess: () => {
@@ -428,9 +431,35 @@ function ProductsPanel() {
     },
     onError: (e) => alert((e as Error).message),
   });
+  const createMut = useMutation({
+    mutationFn: (v: Parameters<typeof create>[0]["data"]) => create({ data: v }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-products"] });
+      qc.invalidateQueries({ queryKey: ["admin-stats"] });
+      setShowCreate(false);
+    },
+    onError: (e) => alert((e as Error).message),
+  });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
   return (
     <div className="space-y-2">
+      <div className="flex justify-end">
+        <button
+          onClick={() => setShowCreate(true)}
+          className="inline-flex items-center gap-1.5 rounded-full bg-heritage-gold text-ethio-charcoal text-xs font-bold px-3 py-1.5 hover:brightness-95"
+        >
+          <Plus className="size-3.5" /> Add product
+        </button>
+      </div>
+      {showCreate && (
+        <CreateProductForm
+          sellers={sellers as any[]}
+          submitting={createMut.isPending}
+          onCancel={() => setShowCreate(false)}
+          onSubmit={(v) => createMut.mutate(v)}
+        />
+      )}
       {isLoading && <PanelLoader />}
       {data.map((p: any) => (
         <ProductRow
@@ -447,6 +476,114 @@ function ProductsPanel() {
         />
       ))}
       {!isLoading && !data.length && <EmptyState icon={Package} text="No products yet." />}
+    </div>
+  );
+}
+
+function CreateProductForm({
+  sellers, submitting, onCancel, onSubmit,
+}: {
+  sellers: any[];
+  submitting: boolean;
+  onCancel: () => void;
+  onSubmit: (v: {
+    sellerId: string; name: string; category: string; price: number; stock: number;
+    img?: string; description?: string; tags: string[]; commissionPct: number;
+  }) => void;
+}) {
+  const [sellerId, setSellerId] = useState(sellers[0]?.id ?? "");
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState("");
+  const [price, setPrice] = useState("0");
+  const [stock, setStock] = useState("0");
+  const [img, setImg] = useState("");
+  const [description, setDescription] = useState("");
+  const [tags, setTags] = useState("");
+  const [commission, setCommission] = useState("10");
+
+  const submit = () => {
+    if (!sellerId) return alert("Select a seller");
+    if (!name.trim()) return alert("Name is required");
+    if (!category.trim()) return alert("Category is required");
+    onSubmit({
+      sellerId,
+      name: name.trim(),
+      category: category.trim(),
+      price: Number(price) || 0,
+      stock: Math.max(0, Math.floor(Number(stock) || 0)),
+      img: img.trim() || undefined,
+      description: description.trim() || undefined,
+      tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+      commissionPct: Number(commission) || 0,
+    });
+  };
+
+  return (
+    <div className="bg-card border-2 border-heritage-gold/50 rounded-xl p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold">New product</p>
+        <button onClick={onCancel} className="size-7 grid place-items-center rounded-full hover:bg-muted"><X className="size-4" /></button>
+      </div>
+      <label className="block">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Seller</span>
+        <select value={sellerId} onChange={(e) => setSellerId(e.target.value)}
+          className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm">
+          {sellers.map((s) => <option key={s.id} value={s.id}>{s.name}{s.verified ? " ✓" : ""}</option>)}
+        </select>
+      </label>
+      <label className="block">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Name</span>
+        <input value={name} onChange={(e) => setName(e.target.value)}
+          className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm" />
+      </label>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Category</span>
+          <input value={category} onChange={(e) => setCategory(e.target.value)}
+            placeholder="e.g. Coffee"
+            className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm" />
+        </label>
+        <label className="block">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Commission %</span>
+          <input type="number" min="0" max="100" step="0.1" value={commission} onChange={(e) => setCommission(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm" />
+        </label>
+        <label className="block">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Price (ETB)</span>
+          <input type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm" />
+        </label>
+        <label className="block">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Stock</span>
+          <input type="number" min="0" step="1" value={stock} onChange={(e) => setStock(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm" />
+        </label>
+      </div>
+      <label className="block">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Image URL</span>
+        <input value={img} onChange={(e) => setImg(e.target.value)} placeholder="https://…"
+          className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm" />
+      </label>
+      <label className="block">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tags (comma-separated)</span>
+        <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="organic, single-origin"
+          className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm" />
+      </label>
+      <label className="block">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Description</span>
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3}
+          className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm" />
+      </label>
+      <div className="flex gap-2 justify-end">
+        <button onClick={onCancel} className="text-xs px-3 py-1.5 rounded-full border border-border">Cancel</button>
+        <button
+          onClick={submit}
+          disabled={submitting}
+          className="text-xs font-bold px-3 py-1.5 rounded-full bg-heritage-gold text-ethio-charcoal disabled:opacity-60"
+        >
+          {submitting ? "Creating…" : "Create product"}
+        </button>
+      </div>
     </div>
   );
 }
