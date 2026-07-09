@@ -5,14 +5,14 @@ import { useState } from "react";
 import {
   ArrowLeft, LayoutDashboard, Package, Users, Store, Wallet, Star, ShieldCheck,
   Loader2, Check, X, Trash2, TrendingUp, AlertTriangle, Crown, Lock,
-  BarChart3, Pencil, Search as SearchIcon,
+  BarChart3, Pencil, Search as SearchIcon, Plus,
 } from "lucide-react";
 import {
   amIAdmin, claimAdminIfNone, getAdminStats,
   adminListOrders, adminUpdateOrderStatus,
   adminListSellers, adminSetSellerVerified,
   adminBulkUpdateOrderStatus, adminBulkSetSellerVerified,
-  adminListProducts, adminDeleteProduct, adminUpdateProduct,
+  adminListProducts, adminDeleteProduct, adminUpdateProduct, adminCreateProduct,
   adminListUsers, getAdminAnalytics,
   adminListWithdrawals, adminDecideWithdrawal,
   adminListReviews, adminSetReviewApproved,
