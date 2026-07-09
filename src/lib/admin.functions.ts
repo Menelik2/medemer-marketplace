@@ -192,6 +192,59 @@ export const adminDeleteProduct = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const adminCreateProduct = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      sellerId: z.string().min(1),
+      name: z.string().trim().min(1).max(200),
+      nameAm: z.string().trim().max(200).optional(),
+      description: z.string().trim().max(2000).optional(),
+      category: z.string().trim().min(1).max(80),
+      price: z.number().nonnegative(),
+      stock: z.number().int().min(0).default(0),
+      img: z.string().url().max(2048).optional(),
+      tags: z.array(z.string().min(1).max(40)).max(20).default([]),
+      commissionPct: z.number().min(0).max(100).default(10),
+    }).parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const sb = context.supabase as any;
+
+    // Verify the target seller exists
+    const { data: seller, error: sErr } = await sb
+      .from("sellers").select("id").eq("id", data.sellerId).maybeSingle();
+    if (sErr) throw new Error(sErr.message);
+    if (!seller) throw new Error("Seller not found");
+
+    // Generate a URL-safe id/slug from the name; ensure uniqueness
+    const base = data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "product";
+    let slug = base;
+    for (let i = 0; i < 5; i++) {
+      const { data: exists } = await sb.from("products").select("id").eq("slug", slug).maybeSingle();
+      if (!exists) break;
+      slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
+    }
+
+    const { error } = await sb.from("products").insert({
+      id: slug,
+      slug,
+      seller_id: data.sellerId,
+      name: data.name,
+      name_am: data.nameAm ?? null,
+      description: data.description ?? null,
+      category: data.category,
+      price: data.price,
+      stock: data.stock,
+      img: data.img ?? null,
+      tags: data.tags,
+      commission_pct: data.commissionPct,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true, id: slug };
+  });
+
 export const adminUpdateProduct = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
