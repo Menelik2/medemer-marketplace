@@ -432,7 +432,10 @@ function ProductsPanel() {
     onError: (e) => alert((e as Error).message),
   });
   const createMut = useMutation({
-    mutationFn: (v: Parameters<typeof create>[0]["data"]) => create({ data: v }),
+    mutationFn: (v: {
+      sellerId: string; name: string; category: string; price: number; stock: number;
+      img?: string; description?: string; tags: string[]; commissionPct: number;
+    }) => create({ data: v }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-products"] });
       qc.invalidateQueries({ queryKey: ["admin-stats"] });
