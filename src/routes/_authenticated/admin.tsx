@@ -424,10 +424,12 @@ function ProductsPanel() {
     },
   });
   const editMut = useMutation({
-    mutationFn: (v: { productId: string; price?: number; stock?: number; name?: string }) => update({ data: v }),
+    mutationFn: (v: { productId: string; price?: number; stock?: number; name?: string; description?: string; img?: string }) =>
+      update({ data: v }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-products"] });
       qc.invalidateQueries({ queryKey: ["admin-stats"] });
+      setEditingProduct(null);
     },
     onError: (e) => alert((e as Error).message),
   });
@@ -443,7 +445,7 @@ function ProductsPanel() {
     },
     onError: (e) => alert((e as Error).message),
   });
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   return (
     <div className="space-y-2">
@@ -468,17 +470,19 @@ function ProductsPanel() {
         <ProductRow
           key={p.id}
           p={p}
-          editing={editingId === p.id}
-          onEdit={() => setEditingId(p.id)}
-          onCancel={() => setEditingId(null)}
-          onSave={(v) => {
-            editMut.mutate({ productId: p.id, ...v });
-            setEditingId(null);
-          }}
+          onEdit={() => setEditingProduct(p)}
           onDelete={() => { if (confirm(`Delete "${p.name}"?`)) mut.mutate(p.id); }}
         />
       ))}
       {!isLoading && !data.length && <EmptyState icon={Package} text="No products yet." />}
+      {editingProduct && (
+        <EditProductModal
+          product={editingProduct}
+          submitting={editMut.isPending}
+          onCancel={() => setEditingProduct(null)}
+          onSave={(v) => editMut.mutate({ productId: editingProduct.id, ...v })}
+        />
+      )}
     </div>
   );
 }
