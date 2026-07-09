@@ -177,7 +177,7 @@ export const adminListProducts = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertAdmin(context);
     const { data } = await context.supabase
-      .from("products").select("id,name,price,stock,category,img,seller_id,sellers(name,verified)")
+      .from("products").select("id,name,price,stock,category,img,description,seller_id,sellers(name,verified)")
       .order("created_at", { ascending: false }).limit(200);
     return data ?? [];
   });
