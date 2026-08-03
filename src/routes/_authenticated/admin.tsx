@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ArrowLeft, LayoutDashboard, Package, Users, Store, Wallet, Star, ShieldCheck,
   Loader2, Check, X, Trash2, TrendingUp, AlertTriangle, Crown, Lock,
   BarChart3, Pencil, Search as SearchIcon, Plus,
+  Upload, ImageOff, RefreshCw,
 } from "lucide-react";
 import {
   amIAdmin, claimAdminIfNone, getAdminStats,
@@ -13,6 +14,7 @@ import {
   adminListSellers, adminSetSellerVerified,
   adminBulkUpdateOrderStatus, adminBulkSetSellerVerified,
   adminListProducts, adminDeleteProduct, adminUpdateProduct, adminCreateProduct,
+  adminUploadProductImage, adminDeleteProductImage,
   adminListUsers, getAdminAnalytics,
   adminListWithdrawals, adminDecideWithdrawal,
   adminListReviews, adminSetReviewApproved,
