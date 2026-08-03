@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ArrowLeft, LayoutDashboard, Package, Users, Store, Wallet, Star, ShieldCheck,
   Loader2, Check, X, Trash2, TrendingUp, AlertTriangle, Crown, Lock,
   BarChart3, Pencil, Search as SearchIcon, Plus,
+  Upload, ImageOff, RefreshCw,
 } from "lucide-react";
 import {
   amIAdmin, claimAdminIfNone, getAdminStats,
@@ -13,6 +14,7 @@ import {
   adminListSellers, adminSetSellerVerified,
   adminBulkUpdateOrderStatus, adminBulkSetSellerVerified,
   adminListProducts, adminDeleteProduct, adminUpdateProduct, adminCreateProduct,
+  adminUploadProductImage, adminDeleteProductImage,
   adminListUsers, getAdminAnalytics,
   adminListWithdrawals, adminDecideWithdrawal,
   adminListReviews, adminSetReviewApproved,
@@ -636,6 +638,55 @@ function EditProductModal({
   const [stock, setStock] = useState(String(product.stock ?? "0"));
   const [description, setDescription] = useState(String(product.description ?? ""));
   const [img, setImg] = useState(String(product.img ?? ""));
+  const [uploadedPath, setUploadedPath] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const uploadImage = useServerFn(adminUploadProductImage);
+  const deleteImage = useServerFn(adminDeleteProductImage);
+
+  const pickFile = () => fileRef.current?.click();
+
+  const onFile = async (file?: File | null) => {
+    if (!file) return;
+    setUploadError(null);
+    if (!/^image\/(png|jpeg|jpg|webp|gif|avif)$/.test(file.type)) {
+      setUploadError("Use a PNG, JPG, WEBP, GIF or AVIF image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("Image must be under 5MB.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const buf = await file.arrayBuffer();
+      let binary = "";
+      const bytes = new Uint8Array(buf);
+      for (let i = 0; i < bytes.length; i += 0x8000) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      }
+      const prev = uploadedPath;
+      const res = await uploadImage({
+        data: { fileName: file.name, contentType: file.type, dataBase64: btoa(binary) },
+      });
+      setImg(res.url);
+      setUploadedPath(res.path);
+      if (prev) await deleteImage({ data: { path: prev } }).catch(() => {});
+    } catch (e: any) {
+      setUploadError(e?.message ?? "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const removeImage = async () => {
+    const prev = uploadedPath;
+    setImg("");
+    setUploadedPath(null);
+    if (prev) await deleteImage({ data: { path: prev } }).catch(() => {});
+  };
 
   const submit = () => {
     if (!name.trim()) return alert("Name is required");
@@ -661,16 +712,57 @@ function EditProductModal({
           <button onClick={onCancel} className="size-8 grid place-items-center rounded-full hover:bg-muted"><X className="size-4" /></button>
         </div>
         <div className="p-4 space-y-3">
-          {img && (
-            <div className="rounded-xl overflow-hidden border border-border bg-muted">
-              <img src={img} alt="" className="w-full h-40 object-cover" onError={(e) => ((e.currentTarget.style.display = "none"))} />
-            </div>
-          )}
-          <label className="block">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Image URL</span>
-            <input value={img} onChange={(e) => setImg(e.target.value)} placeholder="https://…"
-              className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm" />
-          </label>
+          <div className="space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Product image</span>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
+              className="hidden"
+              onChange={(e) => onFile(e.target.files?.[0])}
+            />
+            {img ? (
+              <div className="relative rounded-xl overflow-hidden border border-border bg-muted">
+                <img src={img} alt={name || "Product image"} className="w-full h-40 object-cover" />
+                {uploading && (
+                  <div className="absolute inset-0 grid place-items-center bg-black/50">
+                    <Loader2 className="size-5 animate-spin text-heritage-gold" />
+                  </div>
+                )}
+                <div className="absolute top-2 right-2 flex gap-1.5">
+                  <button
+                    type="button" onClick={pickFile} disabled={uploading}
+                    className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-card/90 border border-border disabled:opacity-60"
+                  >
+                    <RefreshCw className="size-3" /> Replace
+                  </button>
+                  <button
+                    type="button" onClick={removeImage} disabled={uploading}
+                    className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-destructive text-destructive-foreground disabled:opacity-60"
+                  >
+                    <Trash2 className="size-3" /> Remove
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button" onClick={pickFile} disabled={uploading}
+                className="w-full h-32 rounded-xl border-2 border-dashed border-border grid place-items-center gap-1 text-muted-foreground hover:border-heritage-gold/60 disabled:opacity-60"
+              >
+                {uploading ? <Loader2 className="size-5 animate-spin" /> : <Upload className="size-5" />}
+                <span className="text-xs font-semibold">{uploading ? "Uploading…" : "Upload image"}</span>
+                <span className="text-[10px]">PNG, JPG or WEBP · max 5MB</span>
+              </button>
+            )}
+            {uploadError && (
+              <p className="flex items-center gap-1 text-[11px] text-destructive"><ImageOff className="size-3" /> {uploadError}</p>
+            )}
+            <input
+              value={img} onChange={(e) => { setImg(e.target.value); setUploadedPath(null); }}
+              placeholder="…or paste an image URL"
+              className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs"
+            />
+          </div>
           <label className="block">
             <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Name</span>
             <input value={name} onChange={(e) => setName(e.target.value)}

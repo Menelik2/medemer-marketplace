@@ -254,7 +254,7 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
       stock: z.number().int().min(0).optional(),
       name: z.string().min(1).max(200).optional(),
       description: z.string().max(2000).optional(),
-      img: z.string().url().max(2048).optional(),
+      img: z.union([z.string().url().max(2048), z.literal("")]).optional(),
     }).parse(d)
   )
   .handler(async ({ data, context }) => {
@@ -264,7 +264,7 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
     if (data.stock !== undefined) patch.stock = data.stock;
     if (data.name !== undefined) patch.name = data.name;
     if (data.description !== undefined) patch.description = data.description;
-    if (data.img !== undefined) patch.img = data.img;
+    if (data.img !== undefined) patch.img = data.img === "" ? null : data.img;
     if (!Object.keys(patch).length) return { ok: true };
     const { error } = await (context.supabase as any).from("products").update(patch).eq("id", data.productId);
     if (error) throw new Error(error.message);
@@ -272,6 +272,52 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
   });
 
 /* -------- Customers / users -------- */
+
+/* -------- Product image uploads -------- */
+
+const TEN_YEARS = 60 * 60 * 24 * 365 * 10;
+
+export const adminUploadProductImage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      fileName: z.string().min(1).max(200),
+      contentType: z.string().regex(/^image\/(png|jpeg|jpg|webp|gif|avif)$/),
+      dataBase64: z.string().min(1).max(9_000_000),
+    }).parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const bytes = Uint8Array.from(atob(data.dataBase64), (c) => c.charCodeAt(0));
+    if (bytes.byteLength > 5 * 1024 * 1024) throw new Error("Image must be under 5MB");
+
+    const ext = (data.fileName.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const path = `products/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+    const { error: upErr } = await supabaseAdmin.storage
+      .from("product-images")
+      .upload(path, bytes, { contentType: data.contentType, upsert: false });
+    if (upErr) throw new Error(upErr.message);
+
+    const { data: signed, error: sErr } = await supabaseAdmin.storage
+      .from("product-images")
+      .createSignedUrl(path, TEN_YEARS);
+    if (sErr || !signed?.signedUrl) throw new Error(sErr?.message ?? "Could not create image URL");
+
+    return { url: signed.signedUrl, path };
+  });
+
+export const adminDeleteProductImage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ path: z.string().min(1).max(300) }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.storage.from("product-images").remove([data.path]);
+    return { ok: true };
+  });
 
 export const adminListUsers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
