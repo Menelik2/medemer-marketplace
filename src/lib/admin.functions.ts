@@ -254,7 +254,7 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
       stock: z.number().int().min(0).optional(),
       name: z.string().min(1).max(200).optional(),
       description: z.string().max(2000).optional(),
-      img: z.string().url().max(2048).optional(),
+      img: z.union([z.string().url().max(2048), z.literal("")]).optional(),
     }).parse(d)
   )
   .handler(async ({ data, context }) => {
