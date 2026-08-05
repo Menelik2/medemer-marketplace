@@ -149,6 +149,9 @@ export const createOrder = createServerFn({ method: "POST" })
     const itemsPayload = data.items.map((it) => {
       const p = prods.find((x) => x.id === it.productId);
       if (!p) throw new Error("Missing product " + it.productId);
+      if ((p.stock ?? 0) < it.quantity) {
+        throw new Error(`Only ${p.stock ?? 0} left in stock for this item`);
+      }
       const line = Number(p.price) * it.quantity;
       subtotal += line;
       const platform_fee = Math.round((line * Number(p.commission_pct)) / 100);
@@ -191,6 +194,20 @@ export const createOrder = createServerFn({ method: "POST" })
       .from("order_items")
       .insert(itemsPayload.map((i) => ({ ...i, order_id: order.id })));
     if (iErr) throw new Error(iErr.message);
+
+    // Reduce stock for each ordered item (service role: buyers can't write products)
+    {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      await Promise.all(
+        itemsPayload.map((i) => {
+          const p = prods.find((x) => x.id === i.product_id)!;
+          return supabaseAdmin
+            .from("products")
+            .update({ stock: Math.max(0, (p.stock ?? 0) - i.quantity) })
+            .eq("id", i.product_id);
+        }),
+      );
+    }
 
     // Wallet earnings via service role (RLS doesn't allow buyer to insert wallet rows)
     if (status === "paid") {
