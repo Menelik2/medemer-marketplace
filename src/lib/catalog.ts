@@ -137,7 +137,7 @@ export function resolveImg(img: string | null | undefined, category?: string | n
 export const COUPONS: Record<string, { type: "percent" | "flat"; value: number; label: string }> = {
   ETHIO20: { type: "percent", value: 20, label: "20% off" },
   ADDIS100: { type: "flat", value: 100, label: "100 ETB off" },
-  FREESHIP: { type: "flat", value: 60, label: "Free delivery" },
+  FREESHIP: { type: "flat", value: 0, label: "Free delivery" },
 };
 
 export const DELIVERY_FEE = 60;

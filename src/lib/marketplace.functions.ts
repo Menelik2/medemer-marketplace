@@ -39,8 +39,9 @@ export const searchProducts = createServerFn({ method: "GET" })
       hits = hits.filter((p) => {
         const hay = `${p.name} ${p.name_am ?? ""} ${(p.tags ?? []).join(" ")} ${p.seller.name}`.toLowerCase();
         if (hay.includes(q)) return true;
-        // simple typo tolerance: allow single edit distance for short queries
-        return q.length >= 4 && trigramLike(hay, q);
+        // typo tolerance: compare the query against individual words, not the
+        // whole haystack (whole-string comparison matched almost everything).
+        return q.length >= 4 && hay.split(/\s+/).some((w) => w.length >= 3 && trigramLike(w, q));
       });
     }
     if (data.category) hits = hits.filter((p) => p.category === data.category);
@@ -81,7 +82,8 @@ function trigramLike(a: string, b: string) {
   const A = grams(a), B = grams(b);
   let inter = 0;
   B.forEach((g) => { if (A.has(g)) inter++; });
-  return inter / Math.max(1, B.size) >= 0.3;
+  const union = new Set([...A, ...B]).size;
+  return inter / Math.max(1, union) >= 0.4;
 }
 
 /* ---------------- PRODUCT + REVIEWS (public) ---------------- */
@@ -93,7 +95,7 @@ export const getProductBySlug = createServerFn({ method: "GET" })
     const productCols = "id,slug,seller_id,name,name_am,description,description_am,price,category,rating,review_count,stock,img,tags,commission_pct,created_at";
     const { data: p } = await sb
       .from("products")
-      .select(`${productCols}, sellers(id,slug,name,tagline,tagline_am,region,verified,rating,since,phone,avatar,commission_pct,dot_class)`) 
+      .select(`${productCols}, sellers(id,slug,name,tagline,tagline_am,region,verified,rating,since,avatar,commission_pct,dot_class)`) 
       .or(`id.eq.${data.slug},slug.eq.${data.slug}`)
       .maybeSingle();
     return p;
@@ -127,7 +129,7 @@ const createOrderSchema = z.object({
 const COUPONS: Record<string, { type: "percent" | "flat"; value: number }> = {
   ETHIO20: { type: "percent", value: 20 },
   ADDIS100: { type: "flat", value: 100 },
-  FREESHIP: { type: "flat", value: 60 },
+  FREESHIP: { type: "flat", value: 0 },
 };
 const DELIVERY_FEE = 60;
 
@@ -147,6 +149,9 @@ export const createOrder = createServerFn({ method: "POST" })
     const itemsPayload = data.items.map((it) => {
       const p = prods.find((x) => x.id === it.productId);
       if (!p) throw new Error("Missing product " + it.productId);
+      if ((p.stock ?? 0) < it.quantity) {
+        throw new Error(`Only ${p.stock ?? 0} left in stock for this item`);
+      }
       const line = Number(p.price) * it.quantity;
       subtotal += line;
       const platform_fee = Math.round((line * Number(p.commission_pct)) / 100);
@@ -189,6 +194,20 @@ export const createOrder = createServerFn({ method: "POST" })
       .from("order_items")
       .insert(itemsPayload.map((i) => ({ ...i, order_id: order.id })));
     if (iErr) throw new Error(iErr.message);
+
+    // Reduce stock for each ordered item (service role: buyers can't write products)
+    {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      await Promise.all(
+        itemsPayload.map((i) => {
+          const p = prods.find((x) => x.id === i.product_id)!;
+          return supabaseAdmin
+            .from("products")
+            .update({ stock: Math.max(0, (p.stock ?? 0) - i.quantity) })
+            .eq("id", i.product_id);
+        }),
+      );
+    }
 
     // Wallet earnings via service role (RLS doesn't allow buyer to insert wallet rows)
     if (status === "paid") {

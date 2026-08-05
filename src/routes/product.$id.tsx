@@ -67,8 +67,19 @@ function ProductPage() {
     }
   };
 
-  if (isLoading || !p) {
+  if (isLoading) {
     return <div className="min-h-screen grid place-items-center"><Loader2 className="size-6 animate-spin text-heritage-gold" /></div>;
+  }
+  if (!p) {
+    return (
+      <div className="min-h-screen grid place-items-center text-center p-6">
+        <div>
+          <h1 className="font-display text-2xl mb-2">Product not found</h1>
+          <p className="text-xs text-muted-foreground mb-4">This item may have been removed.</p>
+          <Link to="/" className="text-heritage-gold font-semibold text-sm">← Back home</Link>
+        </div>
+      </div>
+    );
   }
   const seller = (p as any).sellers;
   const product = {
