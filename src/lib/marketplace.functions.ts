@@ -39,8 +39,9 @@ export const searchProducts = createServerFn({ method: "GET" })
       hits = hits.filter((p) => {
         const hay = `${p.name} ${p.name_am ?? ""} ${(p.tags ?? []).join(" ")} ${p.seller.name}`.toLowerCase();
         if (hay.includes(q)) return true;
-        // simple typo tolerance: allow single edit distance for short queries
-        return q.length >= 4 && trigramLike(hay, q);
+        // typo tolerance: compare the query against individual words, not the
+        // whole haystack (whole-string comparison matched almost everything).
+        return q.length >= 4 && hay.split(/\s+/).some((w) => w.length >= 3 && trigramLike(w, q));
       });
     }
     if (data.category) hits = hits.filter((p) => p.category === data.category);
@@ -81,7 +82,8 @@ function trigramLike(a: string, b: string) {
   const A = grams(a), B = grams(b);
   let inter = 0;
   B.forEach((g) => { if (A.has(g)) inter++; });
-  return inter / Math.max(1, B.size) >= 0.3;
+  const union = new Set([...A, ...B]).size;
+  return inter / Math.max(1, union) >= 0.4;
 }
 
 /* ---------------- PRODUCT + REVIEWS (public) ---------------- */
@@ -127,7 +129,7 @@ const createOrderSchema = z.object({
 const COUPONS: Record<string, { type: "percent" | "flat"; value: number }> = {
   ETHIO20: { type: "percent", value: 20 },
   ADDIS100: { type: "flat", value: 100 },
-  FREESHIP: { type: "flat", value: 60 },
+  FREESHIP: { type: "flat", value: 0 },
 };
 const DELIVERY_FEE = 60;
 
