@@ -93,7 +93,7 @@ export const getProductBySlug = createServerFn({ method: "GET" })
     const productCols = "id,slug,seller_id,name,name_am,description,description_am,price,category,rating,review_count,stock,img,tags,commission_pct,created_at";
     const { data: p } = await sb
       .from("products")
-      .select(`${productCols}, sellers(id,slug,name,tagline,tagline_am,region,verified,rating,since,phone,avatar,commission_pct,dot_class)`) 
+      .select(`${productCols}, sellers(id,slug,name,tagline,tagline_am,region,verified,rating,since,avatar,commission_pct,dot_class)`) 
       .or(`id.eq.${data.slug},slug.eq.${data.slug}`)
       .maybeSingle();
     return p;
