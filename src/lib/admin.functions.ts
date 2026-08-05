@@ -48,9 +48,9 @@ export const getAdminStats = createServerFn({ method: "GET" })
     await assertAdmin(context);
     const sb = context.supabase;
     const [ordersRes, sellersRes, productsRes, usersRes, withdrawalsRes] = await Promise.all([
-      sb.from("orders").select("id,total,status,created_at,payment_method").order("created_at", { ascending: false }),
+      sb.from("orders").select("id,total,status,created_at,payment_method").order("created_at", { ascending: false }).limit(500),
       sb.from("sellers").select("id,verified"),
-      sb.from("products").select("id,stock"),
+      sb.from("products").select("id,stock").limit(1000),
       sb.from("profiles").select("id", { count: "exact", head: true }),
       sb.from("withdrawal_requests").select("id,status,amount"),
     ]);
