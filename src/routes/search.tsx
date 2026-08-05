@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { Search, SlidersHorizontal, BadgeCheck, Star, ArrowLeft, X, Loader2 } from "lucide-react";
@@ -7,6 +7,10 @@ import { CATEGORIES, ETB, resolveImg, type Category } from "@/lib/catalog";
 import { searchProducts } from "@/lib/marketplace.functions";
 
 export const Route = createFileRoute("/search")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    q: typeof search.q === "string" ? search.q : undefined,
+    category: typeof search.category === "string" ? (search.category as Category) : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Search — ADDIX Marketplace" },
@@ -17,16 +21,23 @@ export const Route = createFileRoute("/search")({
 });
 
 function SearchPage() {
-  const [q, setQ] = useState("");
-  const [category, setCategory] = useState<Category | undefined>();
+  const initial = Route.useSearch();
+  const [q, setQ] = useState(initial.q ?? "");
+  const [debouncedQ, setDebouncedQ] = useState(initial.q ?? "");
+  const [category, setCategory] = useState<Category | undefined>(initial.category);
   const [priceMax, setPriceMax] = useState(6000);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), 250);
+    return () => clearTimeout(t);
+  }, [q]);
+
   const runSearch = useServerFn(searchProducts);
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ["search", q, category, priceMax, verifiedOnly],
-    queryFn: () => runSearch({ data: { q, category, max: priceMax, verifiedOnly } }),
+    queryKey: ["search", debouncedQ, category, priceMax, verifiedOnly],
+    queryFn: () => runSearch({ data: { q: debouncedQ, category, max: priceMax, verifiedOnly } }),
     placeholderData: (prev) => prev,
   });
   const hits = data?.hits ?? [];
